@@ -1,0 +1,132 @@
+#
+# Common GNU Make rules for the VMware SVGA examples.
+#
+# To build your own apps, you just need a makefile which
+# defines a few variables and includes this one. For example:
+#
+#    LIB_DIR = path/to/lib
+#    TARGET = myapp.img
+#    APP_MODULES = main
+#    include $(LIB_DIR)/Makefile.rules
+#
+# All examples get compiled with all library code, and we let
+# GCC garbage collect modules that aren't being used.
+#
+
+# Basic options necessary to produce our standalone binary.
+# Produce 32-bit code, even on 64-bit machines. Don't use
+# the standard library at all. Begin the text segment at 1MB.
+
+CFLAGS := -m32 -ffreestanding -nostdinc -fno-stack-protector
+LDFLAGS := -nostdlib -Wl,-T,$(LIB_DIR)/metalkit/image.ld
+
+# Extra warnings
+CFLAGS += -Wall -Werror
+
+# Size Optimizations.
+CFLAGS += -Os -Wl,--gc-sections -ffunction-sections -fdata-sections
+
+# This enables extra gcc builtins for floating point math.
+CFLAGS += -march=i686 -ffast-math
+
+# Generate debug symbols. These only show up in the .elf file, not the
+# final image. Recent versions of VMware have a gdb debug stub that
+# you can use along with these symbols for source-level debugging of
+# Metalkit apps.
+CFLAGS += -g
+
+# Most of the examples only need 4MB of memory. Some examples
+# override this, so only set it if it isn't already defined.
+ifeq ($(VMX_MEMSIZE),)
+  VMX_MEMSIZE = 4
+endif
+
+CFLAGS += \
+   -I$(LIB_DIR)/metalkit \
+   -I$(LIB_DIR)/util \
+   -I$(LIB_DIR)/refdriver \
+   -I$(LIB_DIR)/vmware \
+
+SOURCES := \
+   $(LIB_DIR)/metalkit/boot.S \
+   $(LIB_DIR)/metalkit/pci.c \
+   $(LIB_DIR)/metalkit/intr.c \
+   $(LIB_DIR)/metalkit/console.c \
+   $(LIB_DIR)/metalkit/console_vga.c \
+   $(LIB_DIR)/metalkit/puff.c \
+   $(LIB_DIR)/metalkit/timer.c \
+   $(LIB_DIR)/metalkit/keyboard.c \
+   $(LIB_DIR)/metalkit/bios.c \
+   $(LIB_DIR)/metalkit/apm.c \
+   $(LIB_DIR)/metalkit/gcc_support.c \
+   $(LIB_DIR)/util/matrix.c \
+   $(LIB_DIR)/util/svga3dutil.c \
+   $(LIB_DIR)/util/svga3dtext.c \
+   $(LIB_DIR)/util/vmbackdoor.c \
+   $(LIB_DIR)/util/mt19937ar.c \
+   $(LIB_DIR)/util/png.c \
+   $(LIB_DIR)/refdriver/svga.c \
+   $(LIB_DIR)/refdriver/svga3d.c \
+   $(LIB_DIR)/refdriver/gmr.c \
+   $(APP_SOURCES)
+
+ELF_TARGET := $(subst .img,.elf,$(TARGET))
+LST_TARGET := $(subst .img,.lst,$(TARGET))
+VMX_TARGET := $(subst .img,.vmx,$(TARGET))
+PLAIN_TARGET := $(subst .img,,$(TARGET))
+
+
+.PHONY: all target clean sizeprof listing
+
+target: $(TARGET) $(VMX_TARGET)
+
+%.lst: %.elf
+	objdump -d $< > $@
+
+%.img: %.elf
+	objcopy -O binary $< $@
+
+# Stackable rules for processing data files
+
+%.data.o: %
+	objcopy -I binary -O elf32-i386 -B i386 $< $@
+
+%.z: %
+	python $(LIB_DIR)/metalkit/deflate.py < $< > $@
+
+# To optimize size, we compile all input files in one step. This
+# lets GCC use information available from all files during its
+# optimization phase.
+
+$(ELF_TARGET): $(SOURCES)
+	$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $(SOURCES)
+
+clean:
+	rm -f $(TARGET) $(ELF_TARGET) $(LST_TARGET) $(VMX_TARGET) *.o
+
+# This is a phony target which prints a list of symbols, sorted by
+# size, and excluding the BSS segment. This is a quick way to see
+# which functions and initialized data are taking the most space in
+# the final binary.
+
+sizeprof: $(ELF_TARGET)
+	@nm --size-sort -S $< | egrep -v " [bBsS] "
+
+# Another phony target, for convenience, which dumps an assembly
+# listing to stdout.
+
+listing: $(ELF_TARGET)
+	objdump -d $<
+
+# Generate a .vmx config file for VMware
+
+$(VMX_TARGET):
+	@echo config.version = 8 > $(VMX_TARGET)
+	@echo virtualHW.version = 7 >> $(VMX_TARGET)
+	@echo memsize = $(VMX_MEMSIZE) >> $(VMX_TARGET)
+	@echo displayname = $(PLAIN_TARGET) >> $(VMX_TARGET)
+	@echo guestOS = other >> $(VMX_TARGET)
+	@echo mks.enable3d = TRUE >> $(VMX_TARGET)
+	@echo floppy0.startConnected = TRUE >> $(VMX_TARGET)
+	@echo floppy0.fileType = file >> $(VMX_TARGET)
+	@echo floppy0.fileName = $(TARGET) >> $(VMX_TARGET)

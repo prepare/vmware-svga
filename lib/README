@@ -1,0 +1,25 @@
+Library Code
+------------
+
+metalkit -
+   Open source (MIT-licensed) library code for writing programs
+   that run on the IA32 architecture on the "bare metal", without
+   an operating system.
+
+refdriver -
+   Source code for the VMware SVGA reference driver.
+
+util -
+   Utility code used by the accompanying examples. Includes higher
+   level APIs built on top of the reference driver, as well as
+   miscellaneous code such as text rendering and matrix math.
+
+vmware -
+   VMware-provided header files, including the headers which define
+   registers and FIFO commands used by the VMware SVGA device.
+
+win32 -
+   A Win32 port of the VMWare SVGA reference driver. This driver runs
+   in userspace, using the kernel mode interface provided by VMware's
+   proprietary kernel-mode graphics driver for Windows XP.
+
