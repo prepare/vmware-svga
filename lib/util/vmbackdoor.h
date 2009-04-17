@@ -60,6 +60,13 @@ typedef struct {
    uint16 id;
 } VMMessageChannel;
 
+typedef struct {
+   uint8 command[1024];
+   uint32 commandLen;
+   uint8  reply[1024];
+   uint32 replyLen;
+} VMTCLOState;
+
 
 void VMBackdoor_MouseInit(Bool absolute);
 Bool VMBackdoor_MouseGetPacket(VMMousePacket *packet);
@@ -73,12 +80,24 @@ void VMBackdoor_MsgSend(VMMessageChannel *channel, const void *buf, uint32 size)
 uint32 VMBackdoor_MsgReceive(VMMessageChannel *channel, void *buf, uint32 bufSize);
 
 VMMessageChannel *VMBackdoor_GetRPCIChannel(void);
+VMMessageChannel *VMBackdoor_GetTCLOChannel(void);
+
 uint32 VMBackdoor_RPCI(const void *request, uint32 reqSize,
                        void *replyBuffer, uint32 replyBufferLen);
-void VMBackdoor_RPCIOut(const void *request, uint32 reqSize);
+void VMBackdoor_CheckedRPCI(const void *request, uint32 reqSize);
+
+Bool VMBackdoor_PollTCLO(VMTCLOState *state, Bool verbose);
+Bool VMBackdoor_CheckPrefixTCLO(VMTCLOState *state, const char *prefix);
+int32 VMBackdoor_IntParamTCLO(VMTCLOState *state, int index);
+void VMBackdoor_ReplyTCLO(VMTCLOState *state, const char *reply);
+
+/* Response codes for ReplyTCLO */
+#define TCLO_SUCCESS       "OK "
+#define TCLO_UNKNOWN_CMD   "ERROR Unknown command"
 
 void VMBackdoor_VGAScreenshot(void);
 
-#define VMBackdoor_Log(s)   VMBackdoor_RPCIOut(("log " s), 4 + sizeof(s))
+#define VMBackdoor_Log(s)        VMBackdoor_CheckedRPCI(("log " s), 4 + sizeof(s))
+#define VMBackdoor_RPCString(s)  VMBackdoor_CheckedRPCI((s), sizeof(s))
 
 #endif /* __VMBACKDOOR_H__ */

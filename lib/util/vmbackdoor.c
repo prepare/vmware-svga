@@ -33,7 +33,7 @@
 #include "vmbackdoor.h"
 #include "backdoor_def.h"
 #include "vmmouse_defs.h"
-#include "intr.h"
+#include "console.h"
 
 #define BACKDOOR_VARS() \
    uint32 eax = 0, ebx = 0, ecx = 0, edx = 0, esi = 0, edi = 0; \
@@ -223,7 +223,8 @@ VMBackdoor_MsgOpen(VMMessageChannel *channel,  // OUT
    BACKDOOR_ASM_IN()
 
    if ((ecx & 0x00010000) == 0) {
-      Intr_Break();
+      Console_Panic("VMBackDoor: Failed to open message channel 0x%08x\n",
+                    proto);
    }
 
    channel->proto = proto;
@@ -287,9 +288,12 @@ VMBackdoor_MsgSend(VMMessageChannel *channel,  // IN
    edx = channel->id << 16;
    BACKDOOR_ASM_IN()
 
-   /* We only support the high-bandwidth backdoor port. */
+   if (size == 0) {
+      return;
+   }
+
    if (((ecx >> 16) & 0x0081) != 0x0081) {
-      Intr_Break();
+      Console_Panic("VMBackdoor: Only the high-bandwidth backdoor port is supported.");
    }
 
    ebx = 0x00010000 | BDOORHB_CMD_MESSAGE;
@@ -300,7 +304,7 @@ VMBackdoor_MsgSend(VMMessageChannel *channel,  // IN
 
    /* Success? */
    if (!(ebx & 0x00010000)) {
-      Intr_Break();
+      Console_Panic("VMBackdoor: Failed to send %d byte message:\n%s", size, buf);
    }
 }
 
@@ -313,10 +317,11 @@ VMBackdoor_MsgSend(VMMessageChannel *channel,  // IN
  *      Receive a message waiting on a VMMessageChannel.
  *
  * Results:
- *      Returns the number of bytes received.
+ *      Returns the number of bytes received, or 0 if no
+ *      message is available.
  *
  * Side effects:
- *      Intr_Break on protocol error or buffer overflow.
+ *      Console_Panic on protocol error or buffer overflow.
  *
  *-----------------------------------------------------------------------------
  */
@@ -333,19 +338,20 @@ VMBackdoor_MsgReceive(VMMessageChannel *channel,  // IN
    edx = channel->id << 16;
    BACKDOOR_ASM_IN()
 
-   /*
-    * Check for success, and make sure a message is waiting.
-    * The host must have just sent us a SENDSIZE request.
-    * Also make sure the host supports high-bandwidth transfers.
-    */
-   if (((ecx >> 16) & 0x0083) != 0x0083 ||
-       (edx >> 16) != 0x0001) {
-      Intr_Break();
+   if ((edx >> 16) != 0x0001) {
+      Console_Panic("VMBackdoor: Error receiving message size.");
    }
 
    size = ebx;
    if (size > bufSize) {
-      Intr_Break();
+      Console_Panic("VMBackdoor: Receive buffer overflow.");
+   }
+   if (size == 0) {
+      return 0;
+   }
+
+   if (((ecx >> 16) & 0x0083) != 0x0083) {
+      Console_Panic("VMBackdoor: Only the high-bandwidth backdoor port is supported.");
    }
 
    /* Receive payload */
@@ -357,7 +363,7 @@ VMBackdoor_MsgReceive(VMMessageChannel *channel,  // IN
 
    /* Success? */
    if (!(ebx & 0x00010000)) {
-      Intr_Break();
+      Console_Panic("VMBackdoor: Failed to receive %d byte message.", size);
    }
 
    /* Acknowledge status */
@@ -404,6 +410,37 @@ VMBackdoor_GetRPCIChannel(void)
 /*
  *-----------------------------------------------------------------------------
  *
+ * VMBackdoor_GetTCLOChannel --
+ *
+ *      Return the channel to use for TCLO messages.
+ *
+ * Results:
+ *      Always returns a VMMessageChannel.
+ *
+ * Side effects:
+ *      Opens the channel if necessary.
+ *
+ *-----------------------------------------------------------------------------
+ */
+
+VMMessageChannel *
+VMBackdoor_GetTCLOChannel(void)
+{
+   static VMMessageChannel channel;
+   static Bool initialized;
+
+   if (!initialized) {
+      VMBackdoor_MsgOpen(&channel, 0x4f4c4354);  /* 'TCLO' */
+      initialized = TRUE;
+   }
+
+   return &channel;
+}
+
+
+/*
+ *-----------------------------------------------------------------------------
+ *
  * VMBackdoor_RPCI --
  *
  *      Synchronously deliver an RPCI message and collect its response.
@@ -432,7 +469,7 @@ VMBackdoor_RPCI(const void *request,    // IN
 /*
  *-----------------------------------------------------------------------------
  *
- * VMBackdoor_RPCIOut --
+ * VMBackdoor_CheckedRPCI --
  *
  *      Synchronously deliver an RPCI message, and expect a status
  *      response ("1" on success).
@@ -442,19 +479,19 @@ VMBackdoor_RPCI(const void *request,    // IN
  *
  * Side effects:
  *      Opens the channel if necessary.
- *      Intr_Break on error.
+ *      Console_Panic on error.
  *
  *-----------------------------------------------------------------------------
  */
 
 void
-VMBackdoor_RPCIOut(const void *request,    // IN
-                   uint32 reqSize)         // IN
+VMBackdoor_CheckedRPCI(const void *request,    // IN
+                       uint32 reqSize)         // IN
 {
    uint8 replyBuf[16];
    uint32 replyLen = VMBackdoor_RPCI(request, reqSize, replyBuf, sizeof replyBuf);
    if (replyLen < 1 || replyBuf[0] != '1') {
-      Intr_Break();
+      Console_Panic("VMBackdoor: RPCI response invalid (%s)\n", replyBuf);
    }
 }
 
@@ -471,7 +508,7 @@ VMBackdoor_RPCIOut(const void *request,    // IN
  *
  * Side effects:
  *      Opens the channel if necessary.
- *      Intr_Break on error.
+ *      Console_Panic on error.
  *
  *-----------------------------------------------------------------------------
  */
@@ -505,7 +542,209 @@ VMBackdoor_VGAScreenshot(void)
       }
 
       if (lineLen > 0) {
-         VMBackdoor_RPCIOut(lineBuf, lineLen);
+         VMBackdoor_CheckedRPCI(lineBuf, lineLen);
       }
+   }
+}
+
+
+/*
+ *-----------------------------------------------------------------------------
+ *
+ * VMBackdoor_PollTCLO --
+ *
+ *      Poll for incoming commands from the TCLO channel, and flush
+ *      the last reply if we had one. We internally handle the 'ping'
+ *      and 'reset' commands.
+ *
+ *      If 'verbose' is set, we print all incoming and outgoing
+ *      messages to the console.
+ *
+ * Results:
+ *      Sets replyLen to zero, populates the 'command' buffer and sets
+ *      commandLen.
+ *
+ *      Returns TRUE if there was a command.
+ *
+ * Side effects:
+ *      Opens the channel if necessary.
+ *
+ *-----------------------------------------------------------------------------
+ */
+
+Bool
+VMBackdoor_PollTCLO(VMTCLOState *state,  // IN/OUT
+                    Bool verbose)        // IN
+{
+   VMMessageChannel *channel = VMBackdoor_GetTCLOChannel();
+
+   while (1) {
+
+      if (state->replyLen && verbose) {
+         Console_Format("[TCLO OUT] '%s'\n", state->reply);
+      }
+
+      VMBackdoor_MsgSend(channel, state->reply, state->replyLen);
+      state->replyLen = 0;
+
+      if (verbose) {
+         memset(state->reply, 0, sizeof state->reply);
+         memset(state->command, 0, sizeof state->command);
+      }
+
+      state->commandLen = VMBackdoor_MsgReceive(channel, state->command,
+                                                sizeof state->command);
+
+      if (state->commandLen == 0) {
+         return FALSE;
+      }
+
+      if (verbose) {
+         Console_Format("[TCLO IN ] '%s'\n", state->command);
+      }
+
+      if (VMBackdoor_CheckPrefixTCLO(state, "reset")) {
+         /* Send "Answer To Reply" */
+         VMBackdoor_ReplyTCLO(state, TCLO_SUCCESS "ATR toolbox");
+
+      } else if (VMBackdoor_CheckPrefixTCLO(state, "ping")) {
+         VMBackdoor_ReplyTCLO(state, TCLO_SUCCESS);
+
+      } else {
+         return TRUE;
+      }
+   }
+}
+
+
+/*
+ *-----------------------------------------------------------------------------
+ *
+ * VMBackdoor_CheckPrefixTCLO --
+ *
+ *      Check for a particular TCLO command, by examining the command prefix.
+ *
+ * Results:
+ *      TRUE if 'prefix' matches, FALSE if not.
+ *
+ * Side effects:
+ *      None
+ *
+ *-----------------------------------------------------------------------------
+ */
+
+Bool
+VMBackdoor_CheckPrefixTCLO(VMTCLOState *state,  // IN
+                           const char *prefix)  // IN
+{
+   char *cmd = (char*) state->command;
+   char *cmdEnd = (char*) state->command + state->commandLen;
+
+   while (cmd < cmdEnd) {
+      if (*prefix == '\0') {
+         /* End of prefix. Matched! */
+         return TRUE;
+      }
+      if (*cmd != *prefix) {
+         /* Not matched */
+         return FALSE;
+      }
+      cmd++;
+      prefix++;
+   }
+
+   /*
+    * Command length is <= prefix length. We only matched successfully
+    * if this is also the end of the prefix.
+    */
+   return *prefix == '\0';
+}
+
+
+/*
+ *-----------------------------------------------------------------------------
+ *
+ * VMBackdoor_IntParamTCLO --
+ *
+ *      Parse an integer parameter out of a TCLO command.
+ *      "index" is the zero-based index of the command token to start
+ *      at. Zero is the command prefix, one is the first space-separated
+ *      token after the prefix, etc.
+ *
+ * Results:
+ *      Returns the parsed integer.
+ *
+ * Side effects:
+ *      None
+ *
+ *-----------------------------------------------------------------------------
+ */
+
+int32
+VMBackdoor_IntParamTCLO(VMTCLOState *state,  // IN
+                        int index)           // IN
+{
+   char *reply = (char*) state->command;
+   char *replyEnd = (char*) state->command + state->commandLen;
+   int32 result = 0;
+   Bool sign = FALSE;
+
+   while (reply < replyEnd && index > 0) {
+      if (*reply == ' ') {
+         index--;
+      }
+      reply++;
+   }
+
+   while (reply < replyEnd) {
+      char c = *reply;
+
+      if (c == '-') {
+         sign = !sign;
+      } else if (c >= '0' && c <= '9') {
+         result *= 10;
+         result += c - '0';
+      } else {
+         break;
+      }
+
+      reply++;
+   }
+
+   return sign ? -result : result;
+}
+
+
+/*
+ *-----------------------------------------------------------------------------
+ *
+ * VMBackdoor_ReplyTCLO --
+ *
+ *      Copy a reply string to the current TCLO state.
+ *
+ * Results:
+ *      Modifies the reply buffer.
+ *
+ * Side effects:
+ *      Panic on buffer overflow.
+ *
+ *-----------------------------------------------------------------------------
+ */
+
+void
+VMBackdoor_ReplyTCLO(VMTCLOState *state,  // IN/OUT
+                     const char *reply)   // IN
+{
+   state->replyLen = 0;
+
+   while (*reply) {
+      if (state->replyLen >= sizeof state->reply) {
+         Console_Panic("VMBackdoor: TCLO reply buffer overflow");
+      }
+
+      state->reply[state->replyLen] = *reply;
+
+      state->replyLen++;
+      reply++;
    }
 }
