@@ -1307,7 +1307,12 @@ SVGAWaitForIRQInternal(void *arg, ...)
 {
    uint32 flags = 0;
 
+   /*
+    * switchContext must be set to TRUE before we halt, or we'll deadlock.
+    * This variable is marked as volatile, plus we use a compiler memory barrier.
+    */
    gSVGA.irq.switchContext = TRUE;
+   asm volatile ("" ::: "memory");
 
    Atomic_Exchange(gSVGA.irq.pending, flags);
 
@@ -1315,7 +1320,12 @@ SVGAWaitForIRQInternal(void *arg, ...)
       Intr_Halt();
    }
 
+   /*
+    * Must set switchContext to FALSE before this stack frame is deallocated.
+    */
    gSVGA.irq.switchContext = FALSE;
+   asm volatile ("" ::: "memory");
+
    return flags;
 }
 
@@ -1336,16 +1346,19 @@ SVGA_WaitForIRQ(void)
     * halt.
     */
 
-   Intr_SaveContext(&gSVGA.irq.newContext);
+   Intr_SaveContext((IntrContext*) &gSVGA.irq.newContext);
 
    do {
-
       /*
        * XXX: The arguments here are a kludge to prevent the interrupt
        *      stack frame from overlapping the stack frame referenced
        *      by Intr_SaveContext().
+       *
+       *      Be sure to look at the generated assembly and compare the
+       *      size of this argument list to the amount of stack space
+       *      allocated for Intr_SaveContext.
        */
-      flags = SVGAWaitForIRQInternal(NULL, NULL, NULL, NULL);
+      flags = SVGAWaitForIRQInternal(NULL, NULL, NULL, NULL, NULL, NULL);
 
    } while (flags == 0);
 

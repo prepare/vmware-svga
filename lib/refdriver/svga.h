@@ -65,7 +65,7 @@ typedef struct SVGADevice {
       uint32  nextFence;
    } fifo;
 
-   struct {
+   volatile struct {
       uint32        pending;
       uint32        switchContext;
       IntrContext   oldContext;
