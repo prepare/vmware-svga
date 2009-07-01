@@ -1397,7 +1397,7 @@ SVGA_WaitForIRQ(void)
 void
 SVGAInterruptHandler(int vector)  // IN (unused)
 {
-   volatile IntrContext *context = Intr_GetContext(vector);
+   IntrContext *context = Intr_GetContext(vector);
 
    /*
     * The SVGA_IRQSTATUS_PORT is a separate I/O port, not a register.
@@ -1421,8 +1421,8 @@ SVGAInterruptHandler(int vector)  // IN (unused)
    Atomic_Or(gSVGA.irq.pending, irqFlags);
 
    if (gSVGA.irq.switchContext) {
-      gSVGA.irq.oldContext = *context;
-      *context = gSVGA.irq.newContext;
+      memcpy((void*) &gSVGA.irq.oldContext, context, sizeof *context);
+      memcpy(context, (void*) &gSVGA.irq.newContext, sizeof *context);
       gSVGA.irq.switchContext = FALSE;
    }
 }
