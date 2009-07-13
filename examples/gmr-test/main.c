@@ -188,8 +188,16 @@ GMR_GenericCopy(SVGAGuestPtr *dest,
 
    SVGA3D_DestroySurface(tempSurfaceId);
 
-   /* Wait for both DMA operations to finish. */
-   SVGA_SyncToFence(SVGA_InsertFence());
+   /*
+    * Wait for both DMA operations to finish. For better test
+    * coverage, we'll alternate between using fences and legacy syncs.
+    */
+   if (testIters & 1) {
+      SVGA_SyncToFence(SVGA_InsertFence());
+   } else {
+      SVGA_WriteReg(SVGA_REG_SYNC, 1);
+      while (SVGA_ReadReg(SVGA_REG_BUSY));
+   }
 }
 
 
