@@ -35,6 +35,46 @@ Workstation, Player, or Fusion. Some of the examples will work on
 older versions, but Workstation 6.5.x or Fusion 2.0.x is strongly
 recommended.
 
+Screen Object
+-------------
+
+Any of the examples that begin with "screen-" make use of a new virtual
+hardware feature called "Screen Object". This feature first appears in
+Workstation 7.0 and Fusion 3.0, and it is enabled by default only for
+Windows 7, Windows Server 2008, Windows Vista, and Mac OS guests. To
+use Screen Object, you can pick one of those guest OS types or you can
+add a configuration option to your VM's VMX file or to your per-user
+VMware config file:
+
+   svga.enableScreenObject = TRUE
+
+We plan to enable Screen Object by default in a future virtual machine
+hardware version. Screen Object is enabled conditionally for the above
+guest OS types on hardware version 7 (the current hardware version
+for Workstation 6.5 and 7.0, Fusion 2.x and 3.0) in order to provide
+better support to the WDDM and Mac OS video drivers on VMware's desktop
+products. Screen Object is never available on hardware version 6 and
+earlier.
+
+Screen Object allows several new capabilities including more efficient
+management of framebuffer memory, dynamic creation and destruction of
+virtual monitors, and it is leading up to the deprecation of BAR1
+memory in favor of guest system memory.
+
+To see the new Screen Object capabilities in action, try the
+screen-multimon test. Note that not all Screen Object features are
+fully supported on all host OSes. Currently, only Fusion 3.0 supports
+the following features:
+
+  - Rendering and reading back from non-rooted screens.
+  - Preserving contents of screens which overlap in the
+    virtual coordinate space.
+  - Hardware-accelerated scaling for the new SVGA3D-to-screen blit.
+
+These are relatively minor edge cases, though. If you design a
+multi-monitor driver using Screen Object, it should run correctly on
+all hosts that support Screen Object.
+
 Contents
 --------
 

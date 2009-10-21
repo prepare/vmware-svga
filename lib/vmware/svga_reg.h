@@ -170,6 +170,7 @@ enum {
       the use of the current SVGA driver. */
 };
 
+
 /*
  * Guest memory regions (GMRs):
  *
@@ -282,6 +283,94 @@ SVGAGuestPtr;
 
 
 /*
+ * SVGAGMRImageFormat --
+ *
+ *    This is a packed representation of the source 2D image format
+ *    for a GMR-to-screen blit. Currently it is defined as an encoding
+ *    of the screen's color depth and bits-per-pixel, however, 16 bits
+ *    are reserved for future use to identify other encodings (such as
+ *    RGBA or higher-precision images).
+ *
+ *    Currently supported formats:
+ *
+ *       bpp depth  Format Name
+ *       --- -----  -----------
+ *        32    24  32-bit BGRX
+ *        24    24  24-bit BGR
+ *        16    16  RGB 5-6-5
+ *        16    15  RGB 5-5-5
+ *
+ */
+
+typedef
+struct SVGAGMRImageFormat {
+   union {
+      struct {
+         uint32 bitsPerPixel : 8;
+         uint32 colorDepth   : 8;
+         uint32 reserved     : 16;  // Must be zero
+      };
+
+      uint32 value;
+   };
+} PACKED
+SVGAGMRImageFormat;
+
+/*
+ * SVGAColorBGRX --
+ *
+ *    A 24-bit color format (BGRX), which does not depend on the
+ *    format of the legacy guest framebuffer (GFB) or the current
+ *    GMRFB state.
+ */
+
+typedef
+struct SVGAColorBGRX {
+   union {
+      struct {
+         uint32 b : 8;
+         uint32 g : 8;
+         uint32 r : 8;
+         uint32 x : 8;  // Unused
+      };
+
+      uint32 value;
+   };
+} PACKED
+SVGAColorBGRX;
+
+
+/*
+ * SVGASignedRect --
+ * SVGASignedPoint --
+ *
+ *    Signed rectangle and point primitives. These are used by the new
+ *    2D primitives for drawing to Screen Objects, which can occupy a
+ *    signed virtual coordinate space.
+ *
+ *    SVGASignedRect specifies a half-open interval: the (left, top)
+ *    pixel is part of the rectangle, but the (right, bottom) pixel is
+ *    not.
+ */
+
+typedef
+struct SVGASignedRect {
+   int32  left;
+   int32  top;
+   int32  right;
+   int32  bottom;
+} PACKED
+SVGASignedRect;
+
+typedef
+struct SVGASignedPoint {
+   int32  x;
+   int32  y;
+} PACKED
+SVGASignedPoint;
+
+
+/*
  *  Capabilities
  *
  *  Note the holes in the bitfield. Missing bits have been deprecated,
@@ -375,6 +464,17 @@ enum {
 
    // Valid with SVGA_FIFO_CAP_RESERVE:
    SVGA_FIFO_RESERVED,           /* Bytes past NEXT_CMD with real contents */
+
+   /*
+    * Valid with SVGA_FIFO_CAP_SCREEN_OBJECT:
+    *
+    * By default this is SVGA_ID_INVALID, to indicate that the cursor
+    * coordinates are specified relative to the virtual root. If this
+    * is set to a specific screen ID, cursor position is reinterpreted
+    * as a signed offset relative to that screen's origin. This is the
+    * only way to place the cursor on a non-rooted screen.
+    */
+   SVGA_FIFO_CURSOR_SCREEN_ID,
 
    /*
     * XXX: The gap here, up until SVGA_FIFO_3D_CAPS, can be used for new
@@ -565,6 +665,56 @@ enum {
  *      Pitch Lock -- Pitch lock register is supported
  *      Video -- SVGA Video overlay units are supported
  *      Escape -- Escape command is supported
+ *
+ * XXX: Add longer descriptions for each capability, including a list
+ *      of the new features that each capability provides.
+ *
+ * SVGA_FIFO_CAP_SCREEN_OBJECT --
+ *
+ *    Provides dynamic multi-screen rendering, for improved Unity and
+ *    multi-monitor modes. With Screen Object, the guest can
+ *    dynamically create and destroy 'screens', which can represent
+ *    Unity windows or virtual monitors. Screen Object also provides
+ *    strong guarantees that DMA operations happen only when
+ *    guest-initiated. Screen Object deprecates the BAR1 guest
+ *    framebuffer (GFB) and all commands that work only with the GFB.
+ *
+ *    New registers:
+ *       FIFO_CURSOR_SCREEN_ID, VIDEO_DATA_GMRID, VIDEO_DST_SCREEN_ID
+ *
+ *    New 2D commands:
+ *       DEFINE_SCREEN, DESTROY_SCREEN, DEFINE_GMRFB, BLIT_GMRFB_TO_SCREEN,
+ *       BLIT_SCREEN_TO_GMRFB, ANNOTATION_FILL, ANNOTATION_COPY
+ *
+ *    New 3D commands:
+ *       BLIT_SURFACE_TO_SCREEN
+ *
+ *    New guarantees:
+ *
+ *       - The host will not read or write guest memory, including the GFB,
+ *         except when explicitly initiated by a DMA command.
+ *
+ *       - All DMA, including legacy DMA like UPDATE and PRESENT_READBACK,
+ *         is guaranteed to complete before any subsequent FENCEs.
+ *
+ *       - All legacy commands which affect a Screen (UPDATE, PRESENT,
+ *         PRESENT_READBACK) as well as new Screen blit commands will
+ *         all behave consistently as blits, and memory will be read
+ *         or written in FIFO order.
+ *
+ *         For example, if you PRESENT from one SVGA3D surface to multiple
+ *         places on the screen, the data copied will always be from the
+ *         SVGA3D surface at the time the PRESENT was issued in the FIFO.
+ *         This was not necessarily true on devices without Screen Object.
+ *
+ *         This means that on devices that support Screen Object, the
+ *         PRESENT_READBACK command should not be necessary unless you
+ *         actually want to read back the results of 3D rendering into
+ *         system memory. (And for that, the BLIT_SCREEN_TO_GMRFB
+ *         command provides a strict superset of functionality.)
+ *
+ *       - When a screen is resized, either using Screen Object commands or
+ *         legacy multimon registers, its contents are preserved.
  */
 
 #define SVGA_FIFO_CAP_NONE                  0
@@ -575,6 +725,7 @@ enum {
 #define SVGA_FIFO_CAP_CURSOR_BYPASS_3   (1<<4)
 #define SVGA_FIFO_CAP_ESCAPE            (1<<5)
 #define SVGA_FIFO_CAP_RESERVE           (1<<6)
+#define SVGA_FIFO_CAP_SCREEN_OBJECT     (1<<7)
 
 
 /*
@@ -632,6 +783,8 @@ enum {
    SVGA_VIDEO_PITCH_1,
    SVGA_VIDEO_PITCH_2,
    SVGA_VIDEO_PITCH_3,
+   SVGA_VIDEO_DATA_GMRID,    // Optional, defaults to SVGA_GMR_FRAMEBUFFER
+   SVGA_VIDEO_DST_SCREEN_ID, // Optional, defaults to virtual coords (SVGA_ID_INVALID)
    SVGA_VIDEO_NUM_REGS
 };
 
@@ -662,7 +815,47 @@ typedef struct SVGAOverlayUnit {
    uint32 dstWidth;
    uint32 dstHeight;
    uint32 pitches[3];
+   uint32 dataGMRId;
+   uint32 dstScreenId;
 } SVGAOverlayUnit;
+
+
+/*
+ * SVGAScreenObject --
+ *
+ *    This is a new way to represent a guest's multi-monitor screen or
+ *    Unity window. Screen objects are only supported if the
+ *    SVGA_FIFO_CAP_SCREEN_OBJECT capability bit is set.
+ *
+ *    If Screen Objects are supported, they can be used to fully
+ *    replace the functionality provided by the framebuffer registers
+ *    (SVGA_REG_WIDTH, HEIGHT, etc.) and by SVGA_CAP_DISPLAY_TOPOLOGY.
+ *
+ *    The screen object is a struct with guaranteed binary
+ *    compatibility. New flags can be added, and the struct may grow,
+ *    but existing fields must retain their meaning.
+ *
+ */
+
+#define SVGA_SCREEN_HAS_ROOT    (1 << 0)  // Screen is present in the virtual coord space
+#define SVGA_SCREEN_IS_PRIMARY  (1 << 1)  // Guest considers this screen to be 'primary'
+#define SVGA_SCREEN_FULLSCREEN_HINT (1 << 2)   // Guest is running a fullscreen app here
+
+typedef
+struct SVGAScreenObject {
+   uint32 structSize;   // sizeof(SVGAScreenObject)
+   uint32 id;
+   uint32 flags;
+   struct {
+      uint32 width;
+      uint32 height;
+   } size;
+   struct {
+      int32 x;
+      int32 y;
+   } root;              // Only used if SVGA_SCREEN_HAS_ROOT is set.
+} PACKED
+SVGAScreenObject;
 
 
 /*
@@ -692,6 +885,13 @@ typedef enum {
    SVGA_CMD_FRONT_ROP_FILL        = 29,
    SVGA_CMD_FENCE                 = 30,
    SVGA_CMD_ESCAPE                = 33,
+   SVGA_CMD_DEFINE_SCREEN         = 34,
+   SVGA_CMD_DESTROY_SCREEN        = 35,
+   SVGA_CMD_DEFINE_GMRFB          = 36,
+   SVGA_CMD_BLIT_GMRFB_TO_SCREEN  = 37,
+   SVGA_CMD_BLIT_SCREEN_TO_GMRFB  = 38,
+   SVGA_CMD_ANNOTATION_FILL       = 39,
+   SVGA_CMD_ANNOTATION_COPY       = 40,
    SVGA_CMD_MAX
 } SVGAFifoCmdId;
 
@@ -705,11 +905,22 @@ typedef enum {
  *    (GFB) at BAR1 + SVGA_REG_FB_OFFSET to any screens which
  *    intersect with the provided virtual rectangle.
  *
+ *    This command does not support using arbitrary guest memory as a
+ *    data source- it only works with the pre-defined GFB memory.
+ *    This command also does not support signed virtual coordinates.
+ *    If you have defined screens (using SVGA_CMD_DEFINE_SCREEN) with
+ *    negative root x/y coordinates, the negative portion of those
+ *    screens will not be reachable by this command.
+ *
  *    This command is not necessary when using framebuffer
  *    traces. Traces are automatically enabled if the SVGA FIFO is
  *    disabled, and you may explicitly enable/disable traces using
  *    SVGA_REG_TRACES. With traces enabled, any write to the GFB will
  *    automatically act as if a subsequent SVGA_CMD_UPDATE was issued.
+ *
+ *    Traces and SVGA_CMD_UPDATE are the only supported ways to render
+ *    pseudocolor screen updates. The newer Screen Object commands
+ *    only support true color formats.
  *
  * Availability:
  *    Always available.
@@ -892,5 +1103,266 @@ struct {
    /* followed by 'size' bytes of data */
 } PACKED
 SVGAFifoCmdEscape;
+
+
+/*
+ * SVGA_CMD_DEFINE_SCREEN --
+ *
+ *    Define or redefine an SVGAScreenObject. See the description of
+ *    SVGAScreenObject above.  The video driver is responsible for
+ *    generating new screen IDs. They should be small positive
+ *    integers. The virtual device will have an implementation
+ *    specific upper limit on the number of screen IDs
+ *    supported. Drivers are responsible for recycling IDs. The first
+ *    valid ID is zero.
+ *
+ *    - Interaction with other registers:
+ *
+ *    For backwards compatibility, when the GFB mode registers (WIDTH,
+ *    HEIGHT, PITCHLOCK, BITS_PER_PIXEL) are modified, the SVGA device
+ *    deletes all screens other than screen #0, and redefines screen
+ *    #0 according to the specified mode. Drivers that use
+ *    SVGA_CMD_DEFINE_SCREEN should destroy or redefine screen #0.
+ *
+ *    If you use screen objects, do not use the legacy multi-mon
+ *    registers (SVGA_REG_NUM_GUEST_DISPLAYS, SVGA_REG_DISPLAY_*).
+ *
+ * Availability:
+ *    SVGA_FIFO_CAP_SCREEN_OBJECT
+ */
+
+typedef
+struct {
+   SVGAScreenObject screen;   // Variable-length according to version
+} PACKED
+SVGAFifoCmdDefineScreen;
+
+
+/*
+ * SVGA_CMD_DESTROY_SCREEN --
+ *
+ *    Destroy an SVGAScreenObject. Its ID is immediately available for
+ *    re-use.
+ *
+ * Availability:
+ *    SVGA_FIFO_CAP_SCREEN_OBJECT
+ */
+
+typedef
+struct {
+   uint32 screenId;
+} PACKED
+SVGAFifoCmdDestroyScreen;
+
+
+/*
+ * SVGA_CMD_DEFINE_GMRFB --
+ *
+ *    This command sets a piece of SVGA device state called the
+ *    Guest Memory Region Framebuffer, or GMRFB. The GMRFB is a
+ *    piece of light-weight state which identifies the location and
+ *    format of an image in guest memory or in BAR1. The GMRFB has
+ *    an arbitrary size, and it doesn't need to match the geometry
+ *    of the GFB or any screen object.
+ *
+ *    The GMRFB can be redefined as often as you like. You could
+ *    always use the same GMRFB, you could redefine it before
+ *    rendering from a different guest screen, or you could even
+ *    redefine it before every blit.
+ *
+ *    There are multiple ways to use this command. The simplest way is
+ *    to use it to move the framebuffer either to elsewhere in the GFB
+ *    (BAR1) memory region, or to a user-defined GMR. This lets a
+ *    driver use a framebuffer allocated entirely out of normal system
+ *    memory, which we encourage.
+ *
+ *    Another way to use this command is to set up a ring buffer of
+ *    updates in GFB memory. If a driver wants to ensure that no
+ *    frames are skipped by the SVGA device, it is important that the
+ *    driver not modify the source data for a blit until the device is
+ *    done processing the command. One efficient way to accomplish
+ *    this is to use a ring of small DMA buffers. Each buffer is used
+ *    for one blit, then we move on to the next buffer in the
+ *    ring. The FENCE mechanism is used to protect each buffer from
+ *    re-use until the device is finished with that buffer's
+ *    corresponding blit.
+ *
+ *    This command does not affect the meaning of SVGA_CMD_UPDATE.
+ *    UPDATEs always occur from the legacy GFB memory area. This
+ *    command has no support for pseudocolor GMRFBs. Currently only
+ *    true-color 15, 16, and 24-bit depths are supported. Future
+ *    devices may expose capabilities for additional framebuffer
+ *    formats.
+ *
+ *    The default GMRFB value is undefined. Drivers must always send
+ *    this command at least once before performing any blit from the
+ *    GMRFB.
+ *
+ * Availability:
+ *    SVGA_FIFO_CAP_SCREEN_OBJECT
+ */
+
+typedef
+struct {
+   SVGAGuestPtr        ptr;
+   uint32              bytesPerLine;
+   SVGAGMRImageFormat  format;
+} PACKED
+SVGAFifoCmdDefineGMRFB;
+
+
+/*
+ * SVGA_CMD_BLIT_GMRFB_TO_SCREEN --
+ *
+ *    This is a guest-to-host blit. It performs a DMA operation to
+ *    copy a rectangular region of pixels from the current GMRFB to
+ *    one or more Screen Objects.
+ *
+ *    The destination coordinate may be specified relative to a
+ *    screen's origin (if a screen ID is specified) or relative to the
+ *    virtual coordinate system's origin (if the screen ID is
+ *    SVGA_ID_INVALID). The actual destination may span zero or more
+ *    screens, in the case of a virtual destination rect or a rect
+ *    which extends off the edge of the specified screen.
+ *
+ *    This command writes to the screen's "base layer": the underlying
+ *    framebuffer which exists below any cursor or video overlays. No
+ *    action is necessary to explicitly hide or update any overlays
+ *    which exist on top of the updated region.
+ *
+ *    The SVGA device is guaranteed to finish reading from the GMRFB
+ *    by the time any subsequent FENCE commands are reached.
+ *
+ *    This command consumes an annotation. See the
+ *    SVGA_CMD_ANNOTATION_* commands for details.
+ *
+ * Availability:
+ *    SVGA_FIFO_CAP_SCREEN_OBJECT
+ */
+
+typedef
+struct {
+   SVGASignedPoint  srcOrigin;
+   SVGASignedRect   destRect;
+   uint32           destScreenId;
+} PACKED
+SVGAFifoCmdBlitGMRFBToScreen;
+
+
+/*
+ * SVGA_CMD_BLIT_SCREEN_TO_GMRFB --
+ *
+ *    This is a host-to-guest blit. It performs a DMA operation to
+ *    copy a rectangular region of pixels from a single Screen Object
+ *    back to the current GMRFB.
+ *
+ *    Usage note: This command should be used rarely. It will
+ *    typically be inefficient, but it is necessary for some types of
+ *    synchronization between 3D (GPU) and 2D (CPU) rendering into
+ *    overlapping areas of a screen.
+ *
+ *    The source coordinate is specified relative to a screen's
+ *    origin. The provided screen ID must be valid. If any parameters
+ *    are invalid, the resulting pixel values are undefined.
+ *
+ *    This command reads the screen's "base layer". Overlays like
+ *    video and cursor are not included, but any data which was sent
+ *    using a blit-to-screen primitive will be available, no matter
+ *    whether the data's original source was the GMRFB or the 3D
+ *    acceleration hardware.
+ *
+ *    Note that our guest-to-host blits and host-to-guest blits aren't
+ *    symmetric in their current implementation. While the parameters
+ *    are identical, host-to-guest blits are a lot less featureful.
+ *    They do not support clipping: If the source parameters don't
+ *    fully fit within a screen, the blit fails. They must originate
+ *    from exactly one screen. Virtual coordinates are not directly
+ *    supported.
+ *
+ *    Host-to-guest blits do support the same set of GMRFB formats
+ *    offered by guest-to-host blits.
+ *
+ *    The SVGA device is guaranteed to finish writing to the GMRFB by
+ *    the time any subsequent FENCE commands are reached.
+ *
+ * Availability:
+ *    SVGA_FIFO_CAP_SCREEN_OBJECT
+ */
+
+typedef
+struct {
+   SVGASignedPoint  destOrigin;
+   SVGASignedRect   srcRect;
+   uint32           srcScreenId;
+} PACKED
+SVGAFifoCmdBlitScreenToGMRFB;
+
+
+/*
+ * SVGA_CMD_ANNOTATION_FILL --
+ *
+ *    This is a blit annotation. This command stores a small piece of
+ *    device state which is consumed by the next blit-to-screen
+ *    command. The state is only cleared by commands which are
+ *    specifically documented as consuming an annotation. Other
+ *    commands (such as ESCAPEs for debugging) may intervene between
+ *    the annotation and its associated blit.
+ *
+ *    This annotation is a promise about the contents of the next
+ *    blit: The video driver is guaranteeing that all pixels in that
+ *    blit will have the same value, specified here as a color in
+ *    SVGAColorBGRX format.
+ *
+ *    The SVGA device can still render the blit correctly even if it
+ *    ignores this annotation, but the annotation may allow it to
+ *    perform the blit more efficiently, for example by ignoring the
+ *    source data and performing a fill in hardware.
+ *
+ *    This annotation is most important for performance when the
+ *    user's display is being remoted over a network connection.
+ *
+ * Availability:
+ *    SVGA_FIFO_CAP_SCREEN_OBJECT
+ */
+
+typedef
+struct {
+   SVGAColorBGRX  color;
+} PACKED
+SVGAFifoCmdAnnotationFill;
+
+
+/*
+ * SVGA_CMD_ANNOTATION_COPY --
+ *
+ *    This is a blit annotation. See SVGA_CMD_ANNOTATION_FILL for more
+ *    information about annotations.
+ *
+ *    This annotation is a promise about the contents of the next
+ *    blit: The video driver is guaranteeing that all pixels in that
+ *    blit will have the same value as those which already exist at an
+ *    identically-sized region on the same or a different screen.
+ *
+ *    Note that the source pixels for the COPY in this annotation are
+ *    sampled before applying the anqnotation's associated blit. They
+ *    are allowed to overlap with the blit's destination pixels.
+ *
+ *    The copy source rectangle is specified the same way as the blit
+ *    destination: it can be a rectangle which spans zero or more
+ *    screens, specified relative to either a screen or to the virtual
+ *    coordinate system's origin. If the source rectangle includes
+ *    pixels which are not from exactly one screen, the results are
+ *    undefined.
+ *
+ * Availability:
+ *    SVGA_FIFO_CAP_SCREEN_OBJECT
+ */
+
+typedef
+struct {
+   SVGASignedPoint  srcOrigin;
+   uint32           srcScreenId;
+} PACKED
+SVGAFifoCmdAnnotationCopy;
 
 #endif

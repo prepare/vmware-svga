@@ -62,12 +62,15 @@ SOURCES := \
    $(LIB_DIR)/util/matrix.c \
    $(LIB_DIR)/util/svga3dutil.c \
    $(LIB_DIR)/util/svga3dtext.c \
+   $(LIB_DIR)/util/screendraw.c \
+   $(LIB_DIR)/util/bitstream-vera-15.font.z.data.o \
    $(LIB_DIR)/util/vmbackdoor.c \
    $(LIB_DIR)/util/mt19937ar.c \
    $(LIB_DIR)/util/png.c \
    $(LIB_DIR)/refdriver/svga.c \
    $(LIB_DIR)/refdriver/svga3d.c \
    $(LIB_DIR)/refdriver/gmr.c \
+   $(LIB_DIR)/refdriver/screen.c \
    $(APP_SOURCES)
 
 ELF_TARGET := $(subst .img,.elf,$(TARGET))

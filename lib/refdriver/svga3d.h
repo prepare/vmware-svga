@@ -44,6 +44,16 @@
 void SVGA3D_Init(void);
 void SVGA3D_BeginPresent(uint32 sid, SVGA3dCopyRect **rects, uint32 numRects);
 void SVGA3D_BeginPresentReadback(SVGA3dRect **rects, uint32 numRects);
+void SVGA3D_BlitSurfaceToScreen(const SVGA3dSurfaceImageId *srcImage,
+                                const SVGASignedRect *srcRect,
+                                uint32 destScreenId,
+                                const SVGASignedRect *destRect);
+void SVGA3D_BeginBlitSurfaceToScreen(const SVGA3dSurfaceImageId *srcImage,
+                                     const SVGASignedRect *srcRect,
+                                     uint32 destScreenId,
+                                     const SVGASignedRect *destRect,
+                                     SVGASignedRect **clipRects,
+                                     uint32 numClipRects);
 
 
 /*

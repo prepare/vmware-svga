@@ -287,6 +287,7 @@ typedef enum {
    SVGA3DSAMPFORMAT_UYVY,        /* UYVY video format */
    SVGA3DSAMPFORMAT_Rx,          /* R16F/32F */
    SVGA3DSAMPFORMAT_RxGx,        /* R16FG16F, R32FG32F */
+   SVGA3DSAMPFORMAT_V16U16,      /* SNORM all */
 } SVGA3DShaderSamplerFormatClass;
 
 /* SVGA3D write mask */
@@ -316,11 +317,14 @@ typedef enum {
 
 /* SVGA3D source swizzle */
 
-#define SVGA3DSWIZZLE_NONE       0xE4
 #define SVGA3DSWIZZLE_REPLICATEX 0x00
 #define SVGA3DSWIZZLE_REPLICATEY 0x55
 #define SVGA3DSWIZZLE_REPLICATEZ 0xAA
 #define SVGA3DSWIZZLE_REPLICATEW 0xFF
+#define SVGA3DSWIZZLE_NONE       0xE4
+#define SVGA3DSWIZZLE_YZXW       0xC9
+#define SVGA3DSWIZZLE_ZXYW       0xD2
+#define SVGA3DSWIZZLE_WXYZ       0x1B
 
 /* SVGA3D source modifiers */
 
@@ -345,6 +349,11 @@ typedef enum {
 
 typedef struct {
    union {
+      struct {
+         uint32 comment_op : 16;
+         uint32 comment_size : 16;
+      };
+
       struct {
          uint32 op : 16;
          uint32 control : 3;

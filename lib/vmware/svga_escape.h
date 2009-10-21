@@ -65,10 +65,17 @@
  * he host about the state of the guest or guest applications. The
  * host can use these hints to make user interface or performance
  * decisions.
+ *
+ * Notes:
+ *
+ *   - SVGA_ESCAPE_VMWARE_HINT_FULLSCREEN is deprecated for guests
+ *     that use the SVGA Screen Object extension. Instead of sending
+ *     this escape, use the SVGA_SCREEN_FULLSCREEN_HINT flag on your
+ *     Screen Object.
  */
 
 #define SVGA_ESCAPE_VMWARE_HINT               0x00030000
-#define SVGA_ESCAPE_VMWARE_HINT_FULLSCREEN    0x00030001
+#define SVGA_ESCAPE_VMWARE_HINT_FULLSCREEN    0x00030001  // Deprecated
 
 typedef
 struct {

@@ -1548,8 +1548,13 @@ SVGA_BeginDefineAlphaCursor(const SVGAFifoCmdDefineAlphaCursor *cursorInfo,  // 
 void
 SVGA_MoveCursor(uint32 visible,   // IN
                 uint32 x,         // IN
-                uint32 y)         // IN
+                uint32 y,         // IN
+                uint32 screenId)  // IN
 {
+   if (SVGA_HasFIFOCap(SVGA_FIFO_CAP_SCREEN_OBJECT)) {
+      gSVGA.fifoMem[SVGA_FIFO_CURSOR_SCREEN_ID] = screenId;
+   }
+
    if (SVGA_HasFIFOCap(SVGA_FIFO_CAP_CURSOR_BYPASS_3)) {
       gSVGA.fifoMem[SVGA_FIFO_CURSOR_ON] = visible;
       gSVGA.fifoMem[SVGA_FIFO_CURSOR_X] = x;

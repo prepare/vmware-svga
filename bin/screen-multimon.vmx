@@ -1,0 +1,9 @@
+config.version = 8
+virtualHW.version = 7
+memsize = 16
+displayname = screen-multimon
+guestOS = other
+mks.enable3d = TRUE
+floppy0.startConnected = TRUE
+floppy0.fileType = file
+floppy0.fileName = screen-multimon.img

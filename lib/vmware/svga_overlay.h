@@ -32,6 +32,8 @@
 #ifndef _SVGA_OVERLAY_H_
 #define _SVGA_OVERLAY_H_
 
+#include "svga_reg.h"
+
 /*
  * Video formats we support
  */
@@ -39,6 +41,13 @@
 #define VMWARE_FOURCC_YV12 0x32315659 // 'Y' 'V' '1' '2'
 #define VMWARE_FOURCC_YUY2 0x32595559 // 'Y' 'U' 'Y' '2'
 #define VMWARE_FOURCC_UYVY 0x59565955 // 'U' 'Y' 'V' 'Y'
+
+typedef enum {
+   SVGA_OVERLAY_FORMAT_INVALID = 0,
+   SVGA_OVERLAY_FORMAT_YV12 = VMWARE_FOURCC_YV12,
+   SVGA_OVERLAY_FORMAT_YUY2 = VMWARE_FOURCC_YUY2,
+   SVGA_OVERLAY_FORMAT_UYVY = VMWARE_FOURCC_UYVY,
+} SVGAOverlayFormat;
 
 #define SVGA_VIDEO_COLORKEY_MASK             0x00ffffff
 
@@ -73,5 +82,126 @@ struct SVGAEscapeVideoFlush {
    uint32 streamId;
 } PACKED
 SVGAEscapeVideoFlush;
+
+
+/*
+ * Struct definitions for the video overlay commands built on
+ * SVGAFifoCmdEscape.
+ */
+typedef
+struct {
+   uint32 command;
+   uint32 overlay;
+} PACKED
+SVGAFifoEscapeCmdVideoBase;
+
+typedef
+struct {
+   SVGAFifoEscapeCmdVideoBase videoCmd;
+} PACKED
+SVGAFifoEscapeCmdVideoFlush;
+
+typedef
+struct {
+   SVGAFifoEscapeCmdVideoBase videoCmd;
+   struct {
+      uint32 regId;
+      uint32 value;
+   } items[1];
+} PACKED
+SVGAFifoEscapeCmdVideoSetRegs;
+
+typedef
+struct {
+   SVGAFifoEscapeCmdVideoBase videoCmd;
+   struct {
+      uint32 regId;
+      uint32 value;
+   } items[SVGA_VIDEO_NUM_REGS];
+} PACKED
+SVGAFifoEscapeCmdVideoSetAllRegs;
+
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * VMwareVideoGetAttributes --
+ *
+ *      Computes the size, pitches and offsets for YUV frames.
+ *
+ * Results:
+ *      TRUE on success; otherwise FALSE on failure.
+ *
+ * Side effects:
+ *      Pitches and offsets for the given YUV frame are put in 'pitches'
+ *      and 'offsets' respectively. They are both optional though.
+ *
+ *----------------------------------------------------------------------
+ */
+
+static INLINE Bool
+VMwareVideoGetAttributes(const SVGAOverlayFormat format,    // IN
+                         uint32 *width,                     // IN / OUT
+                         uint32 *height,                    // IN / OUT
+                         uint32 *size,                      // OUT
+                         uint32 *pitches,                   // OUT (optional)
+                         uint32 *offsets)                   // OUT (optional)
+{
+    int tmp;
+
+    *width = (*width + 1) & ~1;
+
+    if (offsets) {
+        offsets[0] = 0;
+    }
+
+    switch (format) {
+    case VMWARE_FOURCC_YV12:
+       *height = (*height + 1) & ~1;
+       *size = (*width + 3) & ~3;
+
+       if (pitches) {
+          pitches[0] = *size;
+       }
+
+       *size *= *height;
+
+       if (offsets) {
+          offsets[1] = *size;
+       }
+
+       tmp = ((*width >> 1) + 3) & ~3;
+
+       if (pitches) {
+          pitches[1] = pitches[2] = tmp;
+       }
+
+       tmp *= (*height >> 1);
+       *size += tmp;
+
+       if (offsets) {
+          offsets[2] = *size;
+       }
+
+       *size += tmp;
+       break;
+
+    case VMWARE_FOURCC_YUY2:
+    case VMWARE_FOURCC_UYVY:
+       *size = *width * 2;
+
+       if (pitches) {
+          pitches[0] = *size;
+       }
+
+       *size *= *height;
+       break;
+
+    default:
+       return FALSE;
+    }
+
+    return TRUE;
+}
 
 #endif // _SVGA_OVERLAY_H_

@@ -78,7 +78,7 @@ typedef uint32 SVGA3dBool; /* 32-bit Bool definition */
  * human-readable names in GLUtil_GetFormatName.
  */
 
-typedef enum {
+typedef enum SVGA3dSurfaceFormat {
    SVGA3D_FORMAT_INVALID = 0,
 
    SVGA3D_X8R8G8B8       = 1,
@@ -140,6 +140,15 @@ typedef enum {
    SVGA3D_BUFFER         = 37,
 
    SVGA3D_Z_D24X8        = 38,
+
+   SVGA3D_V16U16         = 39,
+
+   SVGA3D_G16R16         = 40,
+   SVGA3D_A16B16G16R16   = 41,
+
+   /* Packed Video formats */
+   SVGA3D_UYVY           = 42,
+   SVGA3D_YUY2           = 43,
 
    SVGA3D_FORMAT_MAX
 } SVGA3dSurfaceFormat;
@@ -591,6 +600,8 @@ typedef enum {
    SVGA3D_RT_INVALID               = ((uint32)-1),
 } SVGA3dRenderTargetType;
 
+#define SVGA3D_MAX_RT_COLOR (SVGA3D_RT_COLOR7 - SVGA3D_RT_COLOR0 + 1)
+
 typedef
 union {
    struct {
@@ -1012,7 +1023,8 @@ typedef enum {
 #define SVGA_3D_CMD_END_QUERY              SVGA_3D_CMD_BASE + 26
 #define SVGA_3D_CMD_WAIT_FOR_QUERY         SVGA_3D_CMD_BASE + 27
 #define SVGA_3D_CMD_PRESENT_READBACK       SVGA_3D_CMD_BASE + 28    // Deprecated
-#define SVGA_3D_CMD_MAX                    SVGA_3D_CMD_BASE + 29
+#define SVGA_3D_CMD_BLIT_SURFACE_TO_SCREEN SVGA_3D_CMD_BASE + 29
+#define SVGA_3D_CMD_MAX                    SVGA_3D_CMD_BASE + 30
 
 #define SVGA_3D_CMD_FUTURE_MAX             2000
 
@@ -1102,6 +1114,10 @@ typedef enum {
    SVGA3D_SURFACE_HINT_DYNAMIC         = (1 << 2),
    SVGA3D_SURFACE_HINT_INDEXBUFFER     = (1 << 3),
    SVGA3D_SURFACE_HINT_VERTEXBUFFER    = (1 << 4),
+   SVGA3D_SURFACE_HINT_TEXTURE         = (1 << 5),
+   SVGA3D_SURFACE_HINT_RENDERTARGET    = (1 << 6),
+   SVGA3D_SURFACE_HINT_DEPTHSTENCIL    = (1 << 7),
+   SVGA3D_SURFACE_HINT_WRITEONLY       = (1 << 8),
 } SVGA3dSurfaceFlags;
 
 typedef
@@ -1281,6 +1297,29 @@ SVGA3dCmdSurfaceStretchBlt;         /* SVGA_3D_CMD_SURFACE_STRETCHBLT */
 
 typedef
 struct {
+   /*
+    * If the discard flag is present in a surface DMA operation, the host may
+    * discard the contents of the current mipmap level and face of the target
+    * surface before applying the surface DMA contents.
+    */
+   uint32 discard : 1;
+
+   /*
+    * If the unsynchronized flag is present, the host may perform this upload
+    * without syncing to pending reads on this surface.
+    */
+   uint32 unsynchronized : 1;
+
+   /*
+    * Guests *MUST* set the reserved bits to 0 before submitting the command
+    * suffix as future flags may occupy these bits.
+    */
+   uint32 reserved : 30;
+} PACKED
+SVGA3dSurfaceDMAFlags;
+
+typedef
+struct {
    SVGA3dGuestImage      guest;
    SVGA3dSurfaceImageId  host;
    SVGA3dTransferType    transfer;
@@ -1298,6 +1337,40 @@ struct {
 } PACKED
 SVGA3dCmdSurfaceDMA;                /* SVGA_3D_CMD_SURFACE_DMA */
 
+/*
+ * SVGA3dCmdSurfaceDMASuffix --
+ *
+ *    This is a command suffix that will appear after a SurfaceDMA command in
+ *    the FIFO.  It contains some extra information that hosts may use to
+ *    optimize performance or protect the guest.  This suffix exists to preserve
+ *    backwards compatibility while also allowing for new functionality to be
+ *    implemented.
+ */
+
+typedef
+struct {
+   uint32 suffixSize;
+
+   /*
+    * The maximum offset is used to determine the maximum offset from the
+    * guestPtr base address that will be accessed or written to during this
+    * surfaceDMA.  If the suffix is supported, the host will respect this
+    * boundary while performing surface DMAs.
+    *
+    * Defaults to MAX_UINT32
+    */
+   uint32 maximumOffset;
+
+   /*
+    * A set of flags that describes optimizations that the host may perform
+    * while performing this surface DMA operation.  The guest should never rely
+    * on behaviour that is different when these flags are set for correctness.
+    *
+    * Defaults to 0
+    */
+   SVGA3dSurfaceDMAFlags flags;
+} PACKED
+SVGA3dCmdSurfaceDMASuffix;
 
 /*
  * SVGA_3D_CMD_DRAW_PRIMITIVES --
@@ -1608,6 +1681,53 @@ struct {
 } PACKED
 SVGA3dQueryResult;
 
+/*
+ * SVGA_3D_CMD_BLIT_SURFACE_TO_SCREEN --
+ *
+ *    This is a blit from an SVGA3D surface to a Screen Object. Just
+ *    like GMR-to-screen blits, this blit may be directed at a
+ *    specific screen or to the virtual coordinate space.
+ *
+ *    The blit copies from a rectangular region of an SVGA3D surface
+ *    image to a rectangular region of a screen or screens.
+ *
+ *    This command takes an optional variable-length list of clipping
+ *    rectangles after the body of the command. If no rectangles are
+ *    specified, there is no clipping region. The entire destRect is
+ *    drawn to. If one or more rectangles are included, they describe
+ *    a clipping region. The clip rectangle coordinates are measured
+ *    relative to the top-left corner of destRect.
+ *
+ *    This clipping region serves multiple purposes:
+ *
+ *      - It can be used to perform an irregularly shaped blit more
+ *        efficiently than by issuing many separate blit commands.
+ *
+ *      - It is equivalent to allowing blits with non-integer
+ *        source coordinates. You could blit just one half-pixel
+ *        of a source, for example, by specifying a larger
+ *        destination rectangle than you need, then removing
+ *        part of it using a clip rectangle.
+ *
+ * Availability:
+ *    SVGA_FIFO_CAP_SCREEN_OBJECT
+ *
+ * Limitations:
+ *
+ *    - Currently, no backend supports blits from a mipmap or face
+ *      other than the first one.
+ */
+
+typedef
+struct {
+   SVGA3dSurfaceImageId srcImage;
+   SVGASignedRect       srcRect;
+   uint32               destScreenId; /* Screen ID or SVGA_ID_INVALID for virt. coords */
+   SVGASignedRect       destRect;     /* Supports scaling if src/rest different size */
+   /* Clipping: zero or more SVGASignedRects follow */
+} PACKED
+SVGA3dCmdBlitSurfaceToScreen;         /* SVGA_3D_CMD_BLIT_SURFACE_TO_SCREEN */
+
 
 /*
  * Capability query index.
@@ -1636,78 +1756,87 @@ SVGA3dQueryResult;
  */
 
 typedef enum {
-   SVGA3D_DEVCAP_3D = 0,
-   SVGA3D_DEVCAP_MAX_LIGHTS,
-   SVGA3D_DEVCAP_MAX_TEXTURES,                        /* See note (1) */
-   SVGA3D_DEVCAP_MAX_CLIP_PLANES,
-   SVGA3D_DEVCAP_VERTEX_SHADER_VERSION,
-   SVGA3D_DEVCAP_VERTEX_SHADER,
-   SVGA3D_DEVCAP_FRAGMENT_SHADER_VERSION,
-   SVGA3D_DEVCAP_FRAGMENT_SHADER,
-   SVGA3D_DEVCAP_MAX_RENDER_TARGETS,
-   SVGA3D_DEVCAP_S23E8_TEXTURES,
-   SVGA3D_DEVCAP_S10E5_TEXTURES,
-   SVGA3D_DEVCAP_MAX_FIXED_VERTEXBLEND,
-   SVGA3D_DEVCAP_D16_BUFFER_FORMAT,                   /* See note (2) */
-   SVGA3D_DEVCAP_D24S8_BUFFER_FORMAT,                 /* See note (2) */
-   SVGA3D_DEVCAP_D24X8_BUFFER_FORMAT,                 /* See note (2) */
-   SVGA3D_DEVCAP_QUERY_TYPES,
-   SVGA3D_DEVCAP_TEXTURE_GRADIENT_SAMPLING,
-   SVGA3D_DEVCAP_MAX_POINT_SIZE,
-   SVGA3D_DEVCAP_MAX_SHADER_TEXTURES,
-   SVGA3D_DEVCAP_MAX_TEXTURE_WIDTH,
-   SVGA3D_DEVCAP_MAX_TEXTURE_HEIGHT,
-   SVGA3D_DEVCAP_MAX_VOLUME_EXTENT,
-   SVGA3D_DEVCAP_MAX_TEXTURE_REPEAT,
-   SVGA3D_DEVCAP_MAX_TEXTURE_ASPECT_RATIO,
-   SVGA3D_DEVCAP_MAX_TEXTURE_ANISOTROPY,
-   SVGA3D_DEVCAP_MAX_PRIMITIVE_COUNT,
-   SVGA3D_DEVCAP_MAX_VERTEX_INDEX,
-   SVGA3D_DEVCAP_MAX_VERTEX_SHADER_INSTRUCTIONS,
-   SVGA3D_DEVCAP_MAX_FRAGMENT_SHADER_INSTRUCTIONS,
-   SVGA3D_DEVCAP_MAX_VERTEX_SHADER_TEMPS,
-   SVGA3D_DEVCAP_MAX_FRAGMENT_SHADER_TEMPS,
-   SVGA3D_DEVCAP_TEXTURE_OPS,
-   SVGA3D_DEVCAP_SURFACEFMT_X8R8G8B8,
-   SVGA3D_DEVCAP_SURFACEFMT_MIN=SVGA3D_DEVCAP_SURFACEFMT_X8R8G8B8,
-   SVGA3D_DEVCAP_SURFACEFMT_A8R8G8B8,
-   SVGA3D_DEVCAP_SURFACEFMT_A2R10G10B10,
-   SVGA3D_DEVCAP_SURFACEFMT_X1R5G5B5,
-   SVGA3D_DEVCAP_SURFACEFMT_A1R5G5B5,
-   SVGA3D_DEVCAP_SURFACEFMT_A4R4G4B4,
-   SVGA3D_DEVCAP_SURFACEFMT_R5G6B5,
-   SVGA3D_DEVCAP_SURFACEFMT_LUMINANCE16,
-   SVGA3D_DEVCAP_SURFACEFMT_LUMINANCE8_ALPHA8,
-   SVGA3D_DEVCAP_SURFACEFMT_ALPHA8,
-   SVGA3D_DEVCAP_SURFACEFMT_LUMINANCE8,
-   SVGA3D_DEVCAP_SURFACEFMT_Z_D16,
-   SVGA3D_DEVCAP_SURFACEFMT_Z_D24S8,
-   SVGA3D_DEVCAP_SURFACEFMT_Z_D24X8,
-   SVGA3D_DEVCAP_SURFACEFMT_DXT1,
-   SVGA3D_DEVCAP_SURFACEFMT_DXT2,
-   SVGA3D_DEVCAP_SURFACEFMT_DXT3,
-   SVGA3D_DEVCAP_SURFACEFMT_DXT4,
-   SVGA3D_DEVCAP_SURFACEFMT_DXT5,
-   SVGA3D_DEVCAP_SURFACEFMT_BUMPX8L8V8U8,
-   SVGA3D_DEVCAP_SURFACEFMT_A2W10V10U10,
-   SVGA3D_DEVCAP_SURFACEFMT_BUMPU8V8,
-   SVGA3D_DEVCAP_SURFACEFMT_Q8W8V8U8,
-   SVGA3D_DEVCAP_SURFACEFMT_CxV8U8,
-   SVGA3D_DEVCAP_SURFACEFMT_R_S10E5,
-   SVGA3D_DEVCAP_SURFACEFMT_R_S23E8,
-   SVGA3D_DEVCAP_SURFACEFMT_RG_S10E5,
-   SVGA3D_DEVCAP_SURFACEFMT_RG_S23E8,
-   SVGA3D_DEVCAP_SURFACEFMT_ARGB_S10E5,
-   SVGA3D_DEVCAP_SURFACEFMT_ARGB_S23E8,
-   SVGA3D_DEVCAP_SURFACEFMT_MAX=SVGA3D_DEVCAP_SURFACEFMT_ARGB_S23E8 + 1,
-   SVGA3D_DEVCAP_MAX_VERTEX_SHADER_TEXTURES,
-
+   SVGA3D_DEVCAP_3D                                = 0,
+   SVGA3D_DEVCAP_MAX_LIGHTS                        = 1,
+   SVGA3D_DEVCAP_MAX_TEXTURES                      = 2,  /* See note (1) */
+   SVGA3D_DEVCAP_MAX_CLIP_PLANES                   = 3,
+   SVGA3D_DEVCAP_VERTEX_SHADER_VERSION             = 4,
+   SVGA3D_DEVCAP_VERTEX_SHADER                     = 5,
+   SVGA3D_DEVCAP_FRAGMENT_SHADER_VERSION           = 6,
+   SVGA3D_DEVCAP_FRAGMENT_SHADER                   = 7,
+   SVGA3D_DEVCAP_MAX_RENDER_TARGETS                = 8,
+   SVGA3D_DEVCAP_S23E8_TEXTURES                    = 9,
+   SVGA3D_DEVCAP_S10E5_TEXTURES                    = 10,
+   SVGA3D_DEVCAP_MAX_FIXED_VERTEXBLEND             = 11,
+   SVGA3D_DEVCAP_D16_BUFFER_FORMAT                 = 12, /* See note (2) */
+   SVGA3D_DEVCAP_D24S8_BUFFER_FORMAT               = 13, /* See note (2) */
+   SVGA3D_DEVCAP_D24X8_BUFFER_FORMAT               = 14, /* See note (2) */
+   SVGA3D_DEVCAP_QUERY_TYPES                       = 15,
+   SVGA3D_DEVCAP_TEXTURE_GRADIENT_SAMPLING         = 16,
+   SVGA3D_DEVCAP_MAX_POINT_SIZE                    = 17,
+   SVGA3D_DEVCAP_MAX_SHADER_TEXTURES               = 18,
+   SVGA3D_DEVCAP_MAX_TEXTURE_WIDTH                 = 19,
+   SVGA3D_DEVCAP_MAX_TEXTURE_HEIGHT                = 20,
+   SVGA3D_DEVCAP_MAX_VOLUME_EXTENT                 = 21,
+   SVGA3D_DEVCAP_MAX_TEXTURE_REPEAT                = 22,
+   SVGA3D_DEVCAP_MAX_TEXTURE_ASPECT_RATIO          = 23,
+   SVGA3D_DEVCAP_MAX_TEXTURE_ANISOTROPY            = 24,
+   SVGA3D_DEVCAP_MAX_PRIMITIVE_COUNT               = 25,
+   SVGA3D_DEVCAP_MAX_VERTEX_INDEX                  = 26,
+   SVGA3D_DEVCAP_MAX_VERTEX_SHADER_INSTRUCTIONS    = 27,
+   SVGA3D_DEVCAP_MAX_FRAGMENT_SHADER_INSTRUCTIONS  = 28,
+   SVGA3D_DEVCAP_MAX_VERTEX_SHADER_TEMPS           = 29,
+   SVGA3D_DEVCAP_MAX_FRAGMENT_SHADER_TEMPS         = 30,
+   SVGA3D_DEVCAP_TEXTURE_OPS                       = 31,
+   SVGA3D_DEVCAP_SURFACEFMT_X8R8G8B8               = 32,
+   SVGA3D_DEVCAP_SURFACEFMT_A8R8G8B8               = 33,
+   SVGA3D_DEVCAP_SURFACEFMT_A2R10G10B10            = 34,
+   SVGA3D_DEVCAP_SURFACEFMT_X1R5G5B5               = 35,
+   SVGA3D_DEVCAP_SURFACEFMT_A1R5G5B5               = 36,
+   SVGA3D_DEVCAP_SURFACEFMT_A4R4G4B4               = 37,
+   SVGA3D_DEVCAP_SURFACEFMT_R5G6B5                 = 38,
+   SVGA3D_DEVCAP_SURFACEFMT_LUMINANCE16            = 39,
+   SVGA3D_DEVCAP_SURFACEFMT_LUMINANCE8_ALPHA8      = 40,
+   SVGA3D_DEVCAP_SURFACEFMT_ALPHA8                 = 41,
+   SVGA3D_DEVCAP_SURFACEFMT_LUMINANCE8             = 42,
+   SVGA3D_DEVCAP_SURFACEFMT_Z_D16                  = 43,
+   SVGA3D_DEVCAP_SURFACEFMT_Z_D24S8                = 44,
+   SVGA3D_DEVCAP_SURFACEFMT_Z_D24X8                = 45,
+   SVGA3D_DEVCAP_SURFACEFMT_DXT1                   = 46,
+   SVGA3D_DEVCAP_SURFACEFMT_DXT2                   = 47,
+   SVGA3D_DEVCAP_SURFACEFMT_DXT3                   = 48,
+   SVGA3D_DEVCAP_SURFACEFMT_DXT4                   = 49,
+   SVGA3D_DEVCAP_SURFACEFMT_DXT5                   = 50,
+   SVGA3D_DEVCAP_SURFACEFMT_BUMPX8L8V8U8           = 51,
+   SVGA3D_DEVCAP_SURFACEFMT_A2W10V10U10            = 52,
+   SVGA3D_DEVCAP_SURFACEFMT_BUMPU8V8               = 53,
+   SVGA3D_DEVCAP_SURFACEFMT_Q8W8V8U8               = 54,
+   SVGA3D_DEVCAP_SURFACEFMT_CxV8U8                 = 55,
+   SVGA3D_DEVCAP_SURFACEFMT_R_S10E5                = 56,
+   SVGA3D_DEVCAP_SURFACEFMT_R_S23E8                = 57,
+   SVGA3D_DEVCAP_SURFACEFMT_RG_S10E5               = 58,
+   SVGA3D_DEVCAP_SURFACEFMT_RG_S23E8               = 59,
+   SVGA3D_DEVCAP_SURFACEFMT_ARGB_S10E5             = 60,
+   SVGA3D_DEVCAP_SURFACEFMT_ARGB_S23E8             = 61,
+   SVGA3D_DEVCAP_MAX_VERTEX_SHADER_TEXTURES        = 63,
 
    /*
     * Note that MAX_SIMULTANEOUS_RENDER_TARGETS is a maximum count of color
     * render targets.  This does no include the depth or stencil targets.
     */
-   SVGA3D_DEVCAP_MAX_SIMULTANEOUS_RENDER_TARGETS,
+   SVGA3D_DEVCAP_MAX_SIMULTANEOUS_RENDER_TARGETS   = 64,
+
+   SVGA3D_DEVCAP_SURFACEFMT_V16U16                 = 65,
+   SVGA3D_DEVCAP_SURFACEFMT_G16R16                 = 66,
+   SVGA3D_DEVCAP_SURFACEFMT_A16B16G16R16           = 67,
+   SVGA3D_DEVCAP_SURFACEFMT_UYVY                   = 68,
+   SVGA3D_DEVCAP_SURFACEFMT_YUY2                   = 69,
+
+   /*
+    * Don't add new caps into the previous section; the values in this
+    * enumeration must not change. You can put new values right before
+    * SVGA3D_DEVCAP_MAX.
+    */
    SVGA3D_DEVCAP_MAX                                  /* This must be the last index. */
 } SVGA3dDevCapIndex;
 

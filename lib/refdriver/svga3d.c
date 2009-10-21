@@ -1082,6 +1082,7 @@ SVGA3D_BeginSetRenderState(uint32 cid,                  // IN
    *states = (SVGA3dRenderState*) &cmd[1];
 }
 
+
 /*
  *----------------------------------------------------------------------
  *
@@ -1112,4 +1113,94 @@ SVGA3D_BeginPresentReadback(SVGA3dRect **rects,  // OUT
    cmd = (void *) SVGA3D_FIFOReserve(SVGA_3D_CMD_PRESENT_READBACK,
                                      sizeof **rects * numRects);
    *rects = (SVGA3dRect*) cmd;
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * SVGA3D_BeginBlitSurfaceToScreen --
+ *
+ *      Begin a BLIT_SURFACE_TO_SCREEN command. This reserves space
+ *      for it in the FIFO, and optionally returns a pointer to the
+ *      command's clip rectangle array.  This function must be paired
+ *      with SVGA_FIFOCommitAll().
+ *
+ *      Copy an SVGA3D surface image to a Screen Object.  This command
+ *      requires the SVGA Screen Object capability to be present.
+ *      Copies a rectangular region of a surface image to a
+ *      rectangular region of a screen or a portion of the virtual
+ *      coordinate space that contains all screens.
+ *
+ *      If destScreenId is SVGA_ID_INVALID, the destination rectangle
+ *      is in virtual coordinates rather than in screen coordinates.
+ *
+ *      If the source and destination rectangle are different sizes,
+ *      the image will be scaled using a backend-specific algorithm.
+ *
+ *      This command may optionally include a clip rectangle list. If
+ *      zero rectangles are specified, there is no clip region. The
+ *      entire destination rectangle is drawn. If one or more
+ *      rectangles are specified, they describe a destination clipping
+ *      region in the same coordinate system as destRect.
+ *
+ * Results:
+ *      None.
+ *
+ * Side effects:
+ *      Writes to the Screen Object.
+ *      Begins a new FIFO command.
+ *
+ *----------------------------------------------------------------------
+ */
+
+void
+SVGA3D_BeginBlitSurfaceToScreen(const SVGA3dSurfaceImageId *srcImage,  // IN
+                                const SVGASignedRect *srcRect,         // IN
+                                uint32 destScreenId,                   // IN (optional)
+                                const SVGASignedRect *destRect,        // IN
+                                SVGASignedRect **clipRects,            // IN (optional)
+                                uint32 numClipRects)                   // IN (optional)
+{
+   SVGA3dCmdBlitSurfaceToScreen *cmd =
+      SVGA3D_FIFOReserve(SVGA_3D_CMD_BLIT_SURFACE_TO_SCREEN,
+                         sizeof *cmd + numClipRects * sizeof(SVGASignedRect));
+
+   cmd->srcImage = *srcImage;
+   cmd->srcRect = *srcRect;
+   cmd->destScreenId = destScreenId;
+   cmd->destRect = *destRect;
+
+   if (clipRects) {
+      *clipRects = (SVGASignedRect*) &cmd[1];
+   }
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * SVGA3D_BlitSurfaceToScreen --
+ *
+ *      This is a convenience wrapper around
+ *      SVGA3D_BeginBlitSurfaceToScreen, for callers who do not
+ *      require a clip rectangle list.
+ *
+ * Results:
+ *      None.
+ *
+ * Side effects:
+ *      Writes to the Screen Object.
+ *
+ *----------------------------------------------------------------------
+ */
+
+void
+SVGA3D_BlitSurfaceToScreen(const SVGA3dSurfaceImageId *srcImage,  // IN
+                           const SVGASignedRect *srcRect,         // IN
+                           uint32 destScreenId,                   // IN (optional)
+                           const SVGASignedRect *destRect)        // IN
+{
+   SVGA3D_BeginBlitSurfaceToScreen(srcImage, srcRect, destScreenId, destRect, NULL, 0);
+   SVGA_FIFOCommitAll();
 }

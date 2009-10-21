@@ -37,6 +37,10 @@
 #include "types.h"
 #include "pci.h"
 #include "intr.h"
+
+// XXX: Shouldn't have to do this here.
+#define INLINE __inline__
+
 #include "svga_reg.h"
 #include "svga_escape.h"
 #include "svga_overlay.h"
@@ -109,7 +113,7 @@ void SVGA_BeginDefineCursor(const SVGAFifoCmdDefineCursor *cursorInfo,
                             void **andMask, void **xorMask);
 void SVGA_BeginDefineAlphaCursor(const SVGAFifoCmdDefineAlphaCursor *cursorInfo,
                                  void **data);
-void SVGA_MoveCursor(uint32 visible, uint32 x, uint32 y);
+void SVGA_MoveCursor(uint32 visible, uint32 x, uint32 y, uint32 screenId);
 
 void SVGA_BeginVideoSetRegs(uint32 streamId, uint32 numItems,
                             SVGAEscapeVideoSetRegs **setRegs);
