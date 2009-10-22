@@ -439,8 +439,7 @@ union {
       uint16   face;       /* SVGA3dFace */
    };
    uint32 uintValue;
-} PACKED
-SVGA3dFillMode;
+} SVGA3dFillMode;
 
 typedef enum {
    SVGA3D_SHADEMODE_INVALID = 0,
@@ -457,8 +456,7 @@ union {
       uint16 pattern;
    };
    uint32 uintValue;
-} PACKED
-SVGA3dLinePattern;
+} SVGA3dLinePattern;
 
 typedef enum {
    SVGA3D_BLENDOP_INVALID            = 0,
@@ -611,8 +609,7 @@ union {
       uint32  alpha : 1;
    };
    uint32 uintValue;
-} PACKED
-SVGA3dColorMask;
+} SVGA3dColorMask;
 
 typedef enum {
    SVGA3D_VBLEND_DISABLE            = 0,
@@ -875,8 +872,7 @@ typedef union {
    };
 
    uint32 value;
-} PACKED
-SVGA3dVertexDivisor;
+} SVGA3dVertexDivisor;
 
 typedef enum {
    SVGA3D_PRIMITIVE_INVALID                     = 0,
@@ -1041,8 +1037,7 @@ typedef struct {
       };
       uint32     uintValue;
    };
-} PACKED
-SVGA3dFogMode;
+} SVGA3dFogMode;
 
 /*
  * Uniquely identify one image (a 1D/2D/3D array) from a surface. This
@@ -1054,8 +1049,7 @@ struct SVGA3dSurfaceImageId {
    uint32               sid;
    uint32               face;
    uint32               mipmap;
-} PACKED
-SVGA3dSurfaceImageId;
+} SVGA3dSurfaceImageId;
 
 typedef
 struct SVGA3dGuestImage {
@@ -1077,8 +1071,7 @@ struct SVGA3dGuestImage {
     * assuming each row of blocks is tightly packed.
     */
    uint32 pitch;
-} PACKED
-SVGA3dGuestImage;
+} SVGA3dGuestImage;
 
 
 /*
@@ -1092,8 +1085,7 @@ typedef
 struct {
    uint32               id;
    uint32               size;
-} PACKED
-SVGA3dCmdHeader;
+} SVGA3dCmdHeader;
 
 /*
  * A surface is a hierarchy of host VRAM surfaces: 1D, 2D, or 3D, with
@@ -1105,8 +1097,7 @@ struct {
    uint32               width;
    uint32               height;
    uint32               depth;
-} PACKED
-SVGA3dSize;
+} SVGA3dSize;
 
 typedef enum {
    SVGA3D_SURFACE_CUBEMAP              = (1 << 0),
@@ -1123,8 +1114,7 @@ typedef enum {
 typedef
 struct {
    uint32               numMipLevels;
-} PACKED
-SVGA3dSurfaceFace;
+} SVGA3dSurfaceFace;
 
 typedef
 struct {
@@ -1141,26 +1131,22 @@ struct {
     * compressed texture would actually be stored as a 4x4x1 image in
     * memory.
     */
-} PACKED
-SVGA3dCmdDefineSurface;       /* SVGA_3D_CMD_SURFACE_DEFINE */
+} SVGA3dCmdDefineSurface;       /* SVGA_3D_CMD_SURFACE_DEFINE */
 
 typedef
 struct {
    uint32               sid;
-} PACKED
-SVGA3dCmdDestroySurface;      /* SVGA_3D_CMD_SURFACE_DESTROY */
+} SVGA3dCmdDestroySurface;      /* SVGA_3D_CMD_SURFACE_DESTROY */
 
 typedef
 struct {
    uint32               cid;
-} PACKED
-SVGA3dCmdDefineContext;       /* SVGA_3D_CMD_CONTEXT_DEFINE */
+} SVGA3dCmdDefineContext;       /* SVGA_3D_CMD_CONTEXT_DEFINE */
 
 typedef
 struct {
    uint32               cid;
-} PACKED
-SVGA3dCmdDestroyContext;      /* SVGA_3D_CMD_CONTEXT_DESTROY */
+} SVGA3dCmdDestroyContext;      /* SVGA_3D_CMD_CONTEXT_DESTROY */
 
 typedef
 struct {
@@ -1170,8 +1156,7 @@ struct {
    float                depth;
    uint32               stencil;
    /* Followed by variable number of SVGA3dRect structures */
-} PACKED
-SVGA3dCmdClear;               /* SVGA_3D_CMD_CLEAR */
+} SVGA3dCmdClear;               /* SVGA_3D_CMD_CLEAR */
 
 typedef
 struct SVGA3dCopyRect {
@@ -1181,8 +1166,7 @@ struct SVGA3dCopyRect {
    uint32               h;
    uint32               srcx;
    uint32               srcy;
-} PACKED
-SVGA3dCopyRect;
+} SVGA3dCopyRect;
 
 typedef
 struct SVGA3dCopyBox {
@@ -1195,8 +1179,7 @@ struct SVGA3dCopyBox {
    uint32               srcx;
    uint32               srcy;
    uint32               srcz;
-} PACKED
-SVGA3dCopyBox;
+} SVGA3dCopyBox;
 
 typedef
 struct {
@@ -1204,8 +1187,7 @@ struct {
    uint32               y;
    uint32               w;
    uint32               h;
-} PACKED
-SVGA3dRect;
+} SVGA3dRect;
 
 typedef
 struct {
@@ -1215,16 +1197,14 @@ struct {
    uint32               w;
    uint32               h;
    uint32               d;
-} PACKED
-SVGA3dBox;
+} SVGA3dBox;
 
 typedef
 struct {
    uint32               x;
    uint32               y;
    uint32               z;
-} PACKED
-SVGA3dPoint;
+} SVGA3dPoint;
 
 typedef
 struct {
@@ -1242,15 +1222,13 @@ struct {
    float                attenuation2;
    float                theta;
    float                phi;
-} PACKED
-SVGA3dLightData;
+} SVGA3dLightData;
 
 typedef
 struct {
    uint32               sid;
    /* Followed by variable number of SVGA3dCopyRect structures */
-} PACKED
-SVGA3dCmdPresent;             /* SVGA_3D_CMD_PRESENT */
+} SVGA3dCmdPresent;             /* SVGA_3D_CMD_PRESENT */
 
 typedef
 struct {
@@ -1259,31 +1237,27 @@ struct {
       uint32               uintValue;
       float                floatValue;
    };
-} PACKED
-SVGA3dRenderState;
+} SVGA3dRenderState;
 
 typedef
 struct {
    uint32               cid;
    /* Followed by variable number of SVGA3dRenderState structures */
-} PACKED
-SVGA3dCmdSetRenderState;      /* SVGA_3D_CMD_SETRENDERSTATE */
+} SVGA3dCmdSetRenderState;      /* SVGA_3D_CMD_SETRENDERSTATE */
 
 typedef
 struct {
    uint32                 cid;
    SVGA3dRenderTargetType type;
    SVGA3dSurfaceImageId   target;
-} PACKED
-SVGA3dCmdSetRenderTarget;     /* SVGA_3D_CMD_SETRENDERTARGET */
+} SVGA3dCmdSetRenderTarget;     /* SVGA_3D_CMD_SETRENDERTARGET */
 
 typedef
 struct {
    SVGA3dSurfaceImageId  src;
    SVGA3dSurfaceImageId  dest;
    /* Followed by variable number of SVGA3dCopyBox structures */
-} PACKED
-SVGA3dCmdSurfaceCopy;               /* SVGA_3D_CMD_SURFACE_COPY */
+} SVGA3dCmdSurfaceCopy;               /* SVGA_3D_CMD_SURFACE_COPY */
 
 typedef
 struct {
@@ -1292,8 +1266,7 @@ struct {
    SVGA3dBox             boxSrc;
    SVGA3dBox             boxDest;
    SVGA3dStretchBltMode  mode;
-} PACKED
-SVGA3dCmdSurfaceStretchBlt;         /* SVGA_3D_CMD_SURFACE_STRETCHBLT */
+} SVGA3dCmdSurfaceStretchBlt;         /* SVGA_3D_CMD_SURFACE_STRETCHBLT */
 
 typedef
 struct {
@@ -1315,8 +1288,7 @@ struct {
     * suffix as future flags may occupy these bits.
     */
    uint32 reserved : 30;
-} PACKED
-SVGA3dSurfaceDMAFlags;
+} SVGA3dSurfaceDMAFlags;
 
 typedef
 struct {
@@ -1334,8 +1306,7 @@ struct {
     * specified. For example, it may round copy boxes outwards such
     * that they lie on particular alignment boundaries.
     */
-} PACKED
-SVGA3dCmdSurfaceDMA;                /* SVGA_3D_CMD_SURFACE_DMA */
+} SVGA3dCmdSurfaceDMA;                /* SVGA_3D_CMD_SURFACE_DMA */
 
 /*
  * SVGA3dCmdSurfaceDMASuffix --
@@ -1369,8 +1340,7 @@ struct {
     * Defaults to 0
     */
    SVGA3dSurfaceDMAFlags flags;
-} PACKED
-SVGA3dCmdSurfaceDMASuffix;
+} SVGA3dCmdSurfaceDMASuffix;
 
 /*
  * SVGA_3D_CMD_DRAW_PRIMITIVES --
@@ -1402,8 +1372,7 @@ struct {
     */
    uint32               first;
    uint32               last;
-} PACKED
-SVGA3dArrayRangeHint;
+} SVGA3dArrayRangeHint;
 
 typedef
 struct {
@@ -1421,8 +1390,7 @@ struct {
    uint32               surfaceId;
    uint32               offset;
    uint32               stride;
-} PACKED
-SVGA3dArray;
+} SVGA3dArray;
 
 typedef
 struct {
@@ -1436,16 +1404,14 @@ struct {
    SVGA3dDeclMethod     method;
    SVGA3dDeclUsage      usage;
    uint32               usageIndex;
-} PACKED
-SVGA3dVertexArrayIdentity;
+} SVGA3dVertexArrayIdentity;
 
 typedef
 struct {
    SVGA3dVertexArrayIdentity  identity;
    SVGA3dArray                array;
    SVGA3dArrayRangeHint       rangeHint;
-} PACKED
-SVGA3dVertexDecl;
+} SVGA3dVertexDecl;
 
 typedef
 struct {
@@ -1495,8 +1461,7 @@ struct {
     * use more memory than rendering with a positive or zero bias.
     */
    int32                indexBias;
-} PACKED
-SVGA3dPrimitiveRange;
+} SVGA3dPrimitiveRange;
 
 typedef
 struct {
@@ -1514,8 +1479,7 @@ struct {
     * 3. Optionally, SVGA3dVertexDivisor, quantity 'numVertexDecls' (contains
     *    the frequency divisor for this the corresponding vertex decl)
     */
-} PACKED
-SVGA3dCmdDrawPrimitives;      /* SVGA_3D_CMD_DRAWPRIMITIVES */
+} SVGA3dCmdDrawPrimitives;      /* SVGA_3D_CMD_DRAWPRIMITIVES */
 
 typedef
 struct {
@@ -1525,37 +1489,32 @@ struct {
       uint32                value;
       float                 floatValue;
    };
-} PACKED
-SVGA3dTextureState;
+} SVGA3dTextureState;
 
 typedef
 struct {
    uint32               cid;
    /* Followed by variable number of SVGA3dTextureState structures */
-} PACKED
-SVGA3dCmdSetTextureState;      /* SVGA_3D_CMD_SETTEXTURESTATE */
+} SVGA3dCmdSetTextureState;      /* SVGA_3D_CMD_SETTEXTURESTATE */
 
 typedef
 struct {
    uint32                   cid;
    SVGA3dTransformType      type;
    float                    matrix[16];
-} PACKED
-SVGA3dCmdSetTransform;          /* SVGA_3D_CMD_SETTRANSFORM */
+} SVGA3dCmdSetTransform;          /* SVGA_3D_CMD_SETTRANSFORM */
 
 typedef
 struct {
    float                min;
    float                max;
-} PACKED
-SVGA3dZRange;
+} SVGA3dZRange;
 
 typedef
 struct {
    uint32               cid;
    SVGA3dZRange         zRange;
-} PACKED
-SVGA3dCmdSetZRange;             /* SVGA_3D_CMD_SETZRANGE */
+} SVGA3dCmdSetZRange;             /* SVGA_3D_CMD_SETZRANGE */
 
 typedef
 struct {
@@ -1564,54 +1523,47 @@ struct {
    float                specular[4];
    float                emissive[4];
    float                shininess;
-} PACKED
-SVGA3dMaterial;
+} SVGA3dMaterial;
 
 typedef
 struct {
    uint32               cid;
    SVGA3dFace           face;
    SVGA3dMaterial       material;
-} PACKED
-SVGA3dCmdSetMaterial;           /* SVGA_3D_CMD_SETMATERIAL */
+} SVGA3dCmdSetMaterial;           /* SVGA_3D_CMD_SETMATERIAL */
 
 typedef
 struct {
    uint32               cid;
    uint32               index;
    SVGA3dLightData      data;
-} PACKED
-SVGA3dCmdSetLightData;           /* SVGA_3D_CMD_SETLIGHTDATA */
+} SVGA3dCmdSetLightData;           /* SVGA_3D_CMD_SETLIGHTDATA */
 
 typedef
 struct {
    uint32               cid;
    uint32               index;
    uint32               enabled;
-} PACKED
-SVGA3dCmdSetLightEnabled;      /* SVGA_3D_CMD_SETLIGHTENABLED */
+} SVGA3dCmdSetLightEnabled;      /* SVGA_3D_CMD_SETLIGHTENABLED */
 
 typedef
 struct {
    uint32               cid;
    SVGA3dRect           rect;
-} PACKED
-SVGA3dCmdSetViewport;           /* SVGA_3D_CMD_SETVIEWPORT */
+} SVGA3dCmdSetViewport;           /* SVGA_3D_CMD_SETVIEWPORT */
 
 typedef
 struct {
    uint32               cid;
    SVGA3dRect           rect;
-} PACKED
-SVGA3dCmdSetScissorRect;         /* SVGA_3D_CMD_SETSCISSORRECT */
+} SVGA3dCmdSetScissorRect;         /* SVGA_3D_CMD_SETSCISSORRECT */
 
 typedef
 struct {
    uint32               cid;
    uint32               index;
    float                plane[4];
-} PACKED
-SVGA3dCmdSetClipPlane;           /* SVGA_3D_CMD_SETCLIPPLANE */
+} SVGA3dCmdSetClipPlane;           /* SVGA_3D_CMD_SETCLIPPLANE */
 
 typedef
 struct {
@@ -1619,16 +1571,14 @@ struct {
    uint32               shid;
    SVGA3dShaderType     type;
    /* Followed by variable number of DWORDs for shader bycode */
-} PACKED
-SVGA3dCmdDefineShader;           /* SVGA_3D_CMD_SHADER_DEFINE */
+} SVGA3dCmdDefineShader;           /* SVGA_3D_CMD_SHADER_DEFINE */
 
 typedef
 struct {
    uint32               cid;
    uint32               shid;
    SVGA3dShaderType     type;
-} PACKED
-SVGA3dCmdDestroyShader;         /* SVGA_3D_CMD_SHADER_DESTROY */
+} SVGA3dCmdDestroyShader;         /* SVGA_3D_CMD_SHADER_DESTROY */
 
 typedef
 struct {
@@ -1637,39 +1587,34 @@ struct {
    SVGA3dShaderType        type;
    SVGA3dShaderConstType   ctype;
    uint32                  values[4];
-} PACKED
-SVGA3dCmdSetShaderConst;        /* SVGA_3D_CMD_SET_SHADER_CONST */
+} SVGA3dCmdSetShaderConst;        /* SVGA_3D_CMD_SET_SHADER_CONST */
 
 typedef
 struct {
    uint32               cid;
    SVGA3dShaderType     type;
    uint32               shid;
-} PACKED
-SVGA3dCmdSetShader;             /* SVGA_3D_CMD_SET_SHADER */
+} SVGA3dCmdSetShader;             /* SVGA_3D_CMD_SET_SHADER */
 
 typedef
 struct {
    uint32               cid;
    SVGA3dQueryType      type;
-} PACKED
-SVGA3dCmdBeginQuery;           /* SVGA_3D_CMD_BEGIN_QUERY */
+} SVGA3dCmdBeginQuery;           /* SVGA_3D_CMD_BEGIN_QUERY */
 
 typedef
 struct {
    uint32               cid;
    SVGA3dQueryType      type;
-   SVGAGuestPtr         guestResult;   /* Points to an SVGA3dQueryResult structure */
-} PACKED
-SVGA3dCmdEndQuery;                  /* SVGA_3D_CMD_END_QUERY */
+   SVGAGuestPtr         guestResult;  /* Points to an SVGA3dQueryResult structure */
+} SVGA3dCmdEndQuery;                  /* SVGA_3D_CMD_END_QUERY */
 
 typedef
 struct {
-   uint32               cid;        /* Same parameters passed to END_QUERY */
+   uint32               cid;          /* Same parameters passed to END_QUERY */
    SVGA3dQueryType      type;
    SVGAGuestPtr         guestResult;
-} PACKED
-SVGA3dCmdWaitForQuery;              /* SVGA_3D_CMD_WAIT_FOR_QUERY */
+} SVGA3dCmdWaitForQuery;              /* SVGA_3D_CMD_WAIT_FOR_QUERY */
 
 typedef
 struct {
@@ -1678,8 +1623,7 @@ struct {
    union {                            /* Set by host on exit from PENDING state */
       uint32            result32;
    };
-} PACKED
-SVGA3dQueryResult;
+} SVGA3dQueryResult;
 
 /*
  * SVGA_3D_CMD_BLIT_SURFACE_TO_SCREEN --
@@ -1725,8 +1669,7 @@ struct {
    uint32               destScreenId; /* Screen ID or SVGA_ID_INVALID for virt. coords */
    SVGASignedRect       destRect;     /* Supports scaling if src/rest different size */
    /* Clipping: zero or more SVGASignedRects follow */
-} PACKED
-SVGA3dCmdBlitSurfaceToScreen;         /* SVGA_3D_CMD_BLIT_SURFACE_TO_SCREEN */
+} SVGA3dCmdBlitSurfaceToScreen;         /* SVGA_3D_CMD_BLIT_SURFACE_TO_SCREEN */
 
 
 /*
@@ -1845,6 +1788,6 @@ typedef union {
    uint32 u;
    int32  i;
    float  f;
-} PACKED SVGA3dDevCapResult;
+} SVGA3dDevCapResult;
 
 #endif /* _SVGA3D_REG_H_ */

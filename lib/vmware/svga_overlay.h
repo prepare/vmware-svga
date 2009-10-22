@@ -73,15 +73,13 @@ struct SVGAEscapeVideoSetRegs {
       uint32 registerId;
       uint32 value;
    } items[1];
-} PACKED
-SVGAEscapeVideoSetRegs;
+} SVGAEscapeVideoSetRegs;
 
 typedef
 struct SVGAEscapeVideoFlush {
    uint32 cmdType;
    uint32 streamId;
-} PACKED
-SVGAEscapeVideoFlush;
+} SVGAEscapeVideoFlush;
 
 
 /*
@@ -92,14 +90,12 @@ typedef
 struct {
    uint32 command;
    uint32 overlay;
-} PACKED
-SVGAFifoEscapeCmdVideoBase;
+} SVGAFifoEscapeCmdVideoBase;
 
 typedef
 struct {
    SVGAFifoEscapeCmdVideoBase videoCmd;
-} PACKED
-SVGAFifoEscapeCmdVideoFlush;
+} SVGAFifoEscapeCmdVideoFlush;
 
 typedef
 struct {
@@ -108,8 +104,7 @@ struct {
       uint32 regId;
       uint32 value;
    } items[1];
-} PACKED
-SVGAFifoEscapeCmdVideoSetRegs;
+} SVGAFifoEscapeCmdVideoSetRegs;
 
 typedef
 struct {
@@ -118,8 +113,7 @@ struct {
       uint32 regId;
       uint32 value;
    } items[SVGA_VIDEO_NUM_REGS];
-} PACKED
-SVGAFifoEscapeCmdVideoSetAllRegs;
+} SVGAFifoEscapeCmdVideoSetAllRegs;
 
 
 /*

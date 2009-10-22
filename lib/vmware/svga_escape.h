@@ -84,7 +84,6 @@ struct {
    struct {
       int32 x, y;
    } monitorPosition;
-} PACKED
-SVGAEscapeHintFullscreen;
+} SVGAEscapeHintFullscreen;
 
 #endif /* _SVGA_ESCAPE_H_ */
