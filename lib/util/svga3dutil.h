@@ -1,5 +1,5 @@
 /**********************************************************
- * Copyright 2008-2009 VMware, Inc.  All rights reserved.
+ * Copyright 2008-2010 VMware, Inc.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -114,11 +114,14 @@ void *SVGA3DUtil_AllocDMABuffer(uint32 size, SVGAGuestPtr *ptr);
 
 uint32 SVGA3DUtil_DefineSurface2D(uint32 width, uint32 height,
                                   SVGA3dSurfaceFormat format);
+uint32 SVGA3DUtil_DefineSurface2DFlags(uint32 width, uint32 height, uint32 flags,
+                                       SVGA3dSurfaceFormat format);
 void SVGA3DUtil_SurfaceDMA2D(uint32 sid, SVGAGuestPtr *guestPtr,
                              SVGA3dTransferType transfer, uint32 width, uint32 height);
 
 uint32 SVGA3DUtil_DefineStaticBuffer(const void *data, uint32 size);
-uint32 SVGA3DUtil_LoadCompressedBuffer(const DataFile *file, uint32 *pSize);
+uint32 SVGA3DUtil_LoadCompressedBuffer(const DataFile *file, uint32 flags,
+                                       uint32 *pSize);
 
 void SVGA3DUtil_AllocDMAPool(DMAPool *self, uint32 bufferSize, uint32 numBuffers);
 DMAPoolBuffer *SVGA3DUtil_DMAPoolGetBuffer(DMAPool *self);

@@ -1,5 +1,5 @@
 /**********************************************************
- * Copyright 2008-2009 VMware, Inc.  All rights reserved.
+ * Copyright 2008-2010 VMware, Inc.  All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -438,6 +438,49 @@ SVGA3DUtil_DefineSurface2D(uint32 width,                // IN
 /*
  *----------------------------------------------------------------------
  *
+ * SVGA3DUtil_DefineSurface2DFlags --
+ *
+ *      This is a simplified version of SVGA3D_BeginDefineSurface(),
+ *      which does not support cube maps, mipmaps, or volume textures,
+ *      but which does allow the caller to specify whether this is an
+ *      index or vertex buffer, and whether it is static or dynamic.
+ *
+ * Results:
+ *      Returns the new surface ID.
+ *
+ * Side effects:
+ *      None.
+ *
+ *----------------------------------------------------------------------
+ */
+uint32
+SVGA3DUtil_DefineSurface2DFlags(uint32 width,                // IN
+                                uint32 height,               // IN
+                                SVGA3dSurfaceFormat format,  // IN
+                                uint32 flags)                // IN
+{
+   uint32 sid;
+   SVGA3dSize *mipSizes;
+   SVGA3dSurfaceFace *faces;
+
+   sid = SVGA3DUtil_AllocSurfaceID();
+   SVGA3D_BeginDefineSurface(sid, flags, format, &faces, &mipSizes, 1);
+
+   faces[0].numMipLevels = 1;
+
+   mipSizes[0].width = width;
+   mipSizes[0].height = height;
+   mipSizes[0].depth = 1;
+
+   SVGA_FIFOCommitAll();
+
+   return sid;
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
  * SVGA3DUtil_SurfaceDMA2D --
  *
  *      This is a simplified version of SVGA3D_BeginSurfaceDMA(),
@@ -538,12 +581,13 @@ SVGA3DUtil_DefineStaticBuffer(const void *data,  // IN
 
 uint32
 SVGA3DUtil_LoadCompressedBuffer(const DataFile *file,  // IN
+                                uint32 flags,          // IN
                                 uint32 *pSize)         // OUT (optional)
 {
    void *buffer;
    SVGAGuestPtr gPtr;
    uint32 size = DataFile_GetDecompressedSize(file);
-   uint32 sid = SVGA3DUtil_DefineSurface2D(size, 1, SVGA3D_BUFFER);
+   uint32 sid = SVGA3DUtil_DefineSurface2DFlags(size, 1, SVGA3D_BUFFER, flags);
 
    buffer = SVGA3DUtil_AllocDMABuffer(size, &gPtr);
    DataFile_Decompress(file, buffer, size);

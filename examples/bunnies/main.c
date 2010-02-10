@@ -167,8 +167,14 @@ main(void)
    SVGA3DUtil_InitFullscreen(CID, 800, 600);
    SVGA3DText_Init();
 
-   vertexSid = SVGA3DUtil_LoadCompressedBuffer(vbFile, &vbSize);
-   indexSid = SVGA3DUtil_LoadCompressedBuffer(ibFile, &ibSize);
+   vertexSid = SVGA3DUtil_LoadCompressedBuffer(vbFile,
+                                               (SVGA3D_SURFACE_HINT_VERTEXBUFFER |
+                                                SVGA3D_SURFACE_HINT_STATIC),
+                                               &vbSize);
+   indexSid = SVGA3DUtil_LoadCompressedBuffer(ibFile,
+                                              (SVGA3D_SURFACE_HINT_INDEXBUFFER |
+                                               SVGA3D_SURFACE_HINT_STATIC),
+                                              &ibSize);
 
    Matrix_Perspective(perspectiveMat, 45.0f,
                       gSVGA.width / (float)gSVGA.height, 0.1f, 100.0f);
