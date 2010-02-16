@@ -1,9 +1,19 @@
-config.version = 8
-virtualHW.version = 7
+#!/usr/bin/vmware
+.encoding = "UTF-8"
+config.version = "8"
+virtualHW.version = "7"
 memsize = 16
-displayname = screen-present-clip
+displayname = "screen-present-clip"
 guestOS = other
 mks.enable3d = TRUE
 floppy0.startConnected = TRUE
 floppy0.fileType = file
-floppy0.fileName = screen-present-clip.img
+floppy0.fileName = "/home/micah/trunk/metalkit/examples/bios-stress/bios-stress.img"
+uuid.location = "56 4d 77 3c d7 e1 03 e0-20 1c 38 aa d2 95 57 e1"
+uuid.bios = "56 4d 77 3c d7 e1 03 e0-20 1c 38 aa d2 95 57 e1"
+cleanShutdown = "TRUE"
+virtualHW.productCompatibility = "hosted"
+replay.supported = "FALSE"
+floppy0.clientDevice = "FALSE"
+replay.filename = ""
+vmotion.checkpointFBSize = "134217728"

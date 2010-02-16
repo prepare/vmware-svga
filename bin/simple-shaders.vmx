@@ -1,9 +1,20 @@
-config.version = 8
-virtualHW.version = 7
+#!/usr/bin/vmware
+.encoding = "UTF-8"
+config.version = "8"
+virtualHW.version = "7"
 memsize = 4
-displayname = simple-shaders
+displayname = "simple-shaders"
 guestOS = other
 mks.enable3d = TRUE
 floppy0.startConnected = TRUE
 floppy0.fileType = file
 floppy0.fileName = simple-shaders.img
+extendedConfigFile = "simple-shaders.vmxf"
+floppy0.clientDevice = "FALSE"
+virtualHW.productCompatibility = "hosted"
+uuid.location = "56 4d 0e 82 44 37 a4 fb-64 dd cf 3b 52 ee 53 cb"
+uuid.bios = "56 4d 0e 82 44 37 a4 fb-64 dd cf 3b 52 ee 53 cb"
+cleanShutdown = "TRUE"
+replay.supported = "FALSE"
+replay.filename = ""
+vmotion.checkpointFBSize = "134217728"

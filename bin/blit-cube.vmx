@@ -1,9 +1,19 @@
+#!/usr/bin/vmware
+.encoding = "UTF-8"
 config.version = 8
 virtualHW.version = 7
 memsize = 4
-displayname = blit-cube
+displayname = "blit-cube"
 guestOS = other
 mks.enable3d = TRUE
 floppy0.startConnected = TRUE
 floppy0.fileType = file
 floppy0.fileName = blit-cube.img
+uuid.location = "56 4d 99 b8 ba e0 07 dc-f9 eb 73 74 e1 d2 21 07"
+uuid.bios = "56 4d 99 b8 ba e0 07 dc-f9 eb 73 74 e1 d2 21 07"
+cleanShutdown = "TRUE"
+virtualHW.productCompatibility = "hosted"
+replay.supported = "FALSE"
+floppy0.clientDevice = "FALSE"
+replay.filename = ""
+vmotion.checkpointFBSize = "134217728"
