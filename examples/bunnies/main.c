@@ -44,6 +44,7 @@ setupFrame(void)
       .diffuse = { 10.0f, 10.0f, 10.0f, 1.0f },
       .ambient = { 0.05f, 0.05f, 0.1f, 1.0f },
       .position = { -5.0f, 5.0f, 0.0f, 1.0f },
+      .range = 1000.0f,
       .attenuation0 = 1.0f,
       .attenuation1 = 0.0f,
       .attenuation2 = 0.0f,
