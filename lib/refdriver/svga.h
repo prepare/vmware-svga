@@ -53,6 +53,7 @@ typedef struct SVGADevice {
    uint8     *fbMem;
    uint32     fifoSize;
    uint32     fbSize;
+   uint32     vramSize;
 
    uint32     deviceVersionId;
    uint32     capabilities;
@@ -82,6 +83,7 @@ typedef struct SVGADevice {
 extern SVGADevice gSVGA;
 
 void SVGA_Init(void);
+void SVGA_Enable(void);
 void SVGA_SetMode(uint32 width, uint32 height, uint32 bpp);
 void SVGA_Disable(void);
 void SVGA_Panic(const char *err);

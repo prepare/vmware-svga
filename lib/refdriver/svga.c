@@ -116,6 +116,7 @@ SVGA_Init(void)
     * does not support the FIFO buffer at all.
     */
 
+   gSVGA.vramSize = SVGA_ReadReg(SVGA_REG_VRAM_SIZE);
    gSVGA.fbSize = SVGA_ReadReg(SVGA_REG_FB_SIZE);
    gSVGA.fifoSize = SVGA_ReadReg(SVGA_REG_MEM_SIZE);
 
@@ -163,41 +164,30 @@ SVGA_Init(void)
       Intr_SetHandler(IRQ_VECTOR(irq), SVGAInterruptHandler);
       Intr_SetMask(irq, TRUE);
    }
+
+   SVGA_Enable();
 }
 
 
 /*
  *-----------------------------------------------------------------------------
  *
- * SVGA_SetMode --
+ * SVGA_Enable --
  *
- *      This switches to SVGA video mode, and enables the command FIFO.
+ *      Enable the SVGA device along with the SVGA FIFO.
  *
  * Results:
  *      void.
  *
  * Side effects:
- *      Switches modes. Disables legacy video modes (VGA, VBE).
- *      Clears the command FIFO, and asks the host to start processing it.
+ *      Initializes the command FIFO.
  *
  *-----------------------------------------------------------------------------
  */
 
 void
-SVGA_SetMode(uint32 width,   // IN
-             uint32 height,  // IN
-             uint32 bpp)     // IN
+SVGA_Enable(void)
 {
-   gSVGA.width = width;
-   gSVGA.height = height;
-   gSVGA.bpp = bpp;
-
-   SVGA_WriteReg(SVGA_REG_WIDTH, width);
-   SVGA_WriteReg(SVGA_REG_HEIGHT, height);
-   SVGA_WriteReg(SVGA_REG_BITS_PER_PIXEL, bpp);
-   SVGA_WriteReg(SVGA_REG_ENABLE, TRUE);
-   gSVGA.pitch = SVGA_ReadReg(SVGA_REG_BYTES_PER_LINE);
-
    /*
     * Initialize the command FIFO. The beginning of FIFO memory is
     * used for an additional set of registers, the "FIFO registers".
@@ -226,9 +216,10 @@ SVGA_SetMode(uint32 width,   // IN
    }
 
    /*
-    * Enable the FIFO.
+    * Enable the SVGA device and FIFO.
     */
 
+   SVGA_WriteReg(SVGA_REG_ENABLE, TRUE);
    SVGA_WriteReg(SVGA_REG_CONFIG_DONE, TRUE);
 
    /*
@@ -285,6 +276,39 @@ void
 SVGA_Disable(void)
 {
    SVGA_WriteReg(SVGA_REG_ENABLE, FALSE);
+}
+
+
+/*
+ *-----------------------------------------------------------------------------
+ *
+ * SVGA_SetMode --
+ *
+ *      This switches the SVGA video mode and enables SVGA device.
+ *
+ * Results:
+ *      void.
+ *
+ * Side effects:
+ *      Transitions to SVGA mode if SVGA device currently disabled.
+ *
+ *-----------------------------------------------------------------------------
+ */
+
+void
+SVGA_SetMode(uint32 width,   // IN
+             uint32 height,  // IN
+             uint32 bpp)     // IN
+{
+   gSVGA.width = width;
+   gSVGA.height = height;
+   gSVGA.bpp = bpp;
+
+   SVGA_WriteReg(SVGA_REG_WIDTH, width);
+   SVGA_WriteReg(SVGA_REG_HEIGHT, height);
+   SVGA_WriteReg(SVGA_REG_BITS_PER_PIXEL, bpp);
+   SVGA_WriteReg(SVGA_REG_ENABLE, TRUE);
+   gSVGA.pitch = SVGA_ReadReg(SVGA_REG_BYTES_PER_LINE);
 }
 
 
