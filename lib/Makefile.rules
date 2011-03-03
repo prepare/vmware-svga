@@ -102,7 +102,7 @@ target: $(TARGET) $(VMX_TARGET)
 # optimization phase.
 
 $(ELF_TARGET): $(SOURCES)
-	$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $(SOURCES)
+	$(CC) $(LDFLAGS) $(DEFS) $(CFLAGS) -o $@ $(SOURCES)
 
 clean:
 	rm -f $(TARGET) $(ELF_TARGET) $(LST_TARGET) $(VMX_TARGET) *.o

@@ -41,7 +41,15 @@
 SVGADevice gSVGA;
 
 static void SVGAFIFOFull(void);
+
+#ifndef REALLY_TINY
 static void SVGAInterruptHandler(int vector);
+#endif
+
+#ifdef REALLY_TINY
+#define Console_Panic(x)
+#define SVGA_Panic(x)
+#endif
 
 
 /*
@@ -148,6 +156,7 @@ SVGA_Init(void)
     * device by the BIOS.
     */
 
+#ifndef REALLY_TINY
    if (gSVGA.capabilities & SVGA_CAP_IRQMASK) {
       uint8 irq = PCI_ConfigRead8(&gSVGA.pciAddr, offsetof(PCIConfigSpace, intrLine));
 
@@ -164,6 +173,7 @@ SVGA_Init(void)
       Intr_SetHandler(IRQ_VECTOR(irq), SVGAInterruptHandler);
       Intr_SetMask(irq, TRUE);
    }
+#endif
 
    SVGA_Enable();
 }
@@ -232,6 +242,7 @@ SVGA_Enable(void)
     * then ensures that we received all applicable interrupts.
     */
 
+#ifndef REALLY_TINY
    if (gSVGA.capabilities & SVGA_CAP_IRQMASK) {
 
       SVGA_WriteReg(SVGA_REG_IRQMASK, SVGA_IRQFLAG_ANY_FENCE);
@@ -251,6 +262,7 @@ SVGA_Enable(void)
 
       SVGA_WaitForIRQ();
    }
+#endif
 }
 
 
@@ -329,6 +341,7 @@ SVGA_SetMode(uint32 width,   // IN
  *-----------------------------------------------------------------------------
  */
 
+#ifndef REALLY_TINY
 void
 SVGA_Panic(const char *msg)  // IN
 {
@@ -336,6 +349,7 @@ SVGA_Panic(const char *msg)  // IN
    ConsoleVGA_Init();
    Console_Panic(msg);
 }
+#endif
 
 
 /*
@@ -359,8 +373,10 @@ SVGA_Panic(const char *msg)  // IN
 void
 SVGA_DefaultFaultHandler(int vector)  // IN
 {
+#ifndef REALLY_TINY
    SVGA_Disable();
    Console_UnhandledFault(vector);
+#endif
 }
 
 
@@ -887,6 +903,7 @@ SVGA_FIFOReserveEscape(uint32 nsid,   // IN
 void
 SVGAFIFOFull(void)
 {
+#ifndef REALLY_TINY
    if (SVGA_IsFIFORegValid(SVGA_FIFO_FENCE_GOAL) &&
        (gSVGA.capabilities & SVGA_CAP_IRQMASK)) {
 
@@ -917,6 +934,7 @@ SVGAFIFOFull(void)
       SVGA_WriteReg(SVGA_REG_SYNC, 1);
       SVGA_ReadReg(SVGA_REG_BUSY);
    }
+#endif
 }
 
 
@@ -1053,6 +1071,7 @@ SVGA_SyncToFence(uint32 fence)  // IN
       return;
    }
 
+#ifndef REALLY_TINY
    if (SVGA_IsFIFORegValid(SVGA_FIFO_FENCE_GOAL) &&
        (gSVGA.capabilities & SVGA_CAP_IRQMASK)) {
 
@@ -1104,7 +1123,9 @@ SVGA_SyncToFence(uint32 fence)  // IN
 
       SVGA_WriteReg(SVGA_REG_IRQMASK, 0);
 
-   } else {
+   } else
+#endif // REALLY_TINY
+   {
       /*
        * Sync-to-fence mechanism for older hosts. Wake up the host,
        * and spin on BUSY until we've reached the fence. This
@@ -1121,6 +1142,7 @@ SVGA_SyncToFence(uint32 fence)  // IN
       }
    }
 
+#ifndef REALLY_TINY
    if (!SVGA_HasFencePassed(fence)) {
       /*
        * This shouldn't happen. If it does, there might be a bug in
@@ -1128,6 +1150,7 @@ SVGA_SyncToFence(uint32 fence)  // IN
        */
       SVGA_Panic("SyncToFence failed!");
    }
+#endif
 }
 
 
@@ -1418,6 +1441,7 @@ SVGA_WaitForIRQ(void)
  *-----------------------------------------------------------------------------
  */
 
+#ifndef REALLY_TINY
 void
 SVGAInterruptHandler(int vector)  // IN (unused)
 {
@@ -1450,6 +1474,7 @@ SVGAInterruptHandler(int vector)  // IN (unused)
       gSVGA.irq.switchContext = FALSE;
    }
 }
+#endif
 
 
 /*
