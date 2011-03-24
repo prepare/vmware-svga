@@ -418,13 +418,50 @@ PongDrawScreen()
 static void
 PongLaunchBall()
 {
-   float angle = Random32() * 1.4629e-9;  // (PI * 2 / MAX_UINT32)
-  
-   pong.ballPos.x = MODE_WIDTH / 2;
-   pong.ballPos.y = MODE_HEIGHT / 2;
+    /* sin() from 0 to PI/2 */
+    static const float sineTable[64] = {
+        0.000000, 0.024931, 0.049846, 0.074730, 0.099568, 0.124344, 0.149042, 0.173648,
+	0.198146, 0.222521, 0.246757, 0.270840, 0.294755, 0.318487, 0.342020, 0.365341,
+	0.388435, 0.411287, 0.433884, 0.456211, 0.478254, 0.500000, 0.521435, 0.542546,
+	0.563320, 0.583744, 0.603804, 0.623490, 0.642788, 0.661686, 0.680173, 0.698237,
+	0.715867, 0.733052, 0.749781, 0.766044, 0.781831, 0.797133, 0.811938, 0.826239,
+	0.840026, 0.853291, 0.866025, 0.878222, 0.889872, 0.900969, 0.911506, 0.921476,
+	0.930874, 0.939693, 0.947927, 0.955573, 0.962624, 0.969077, 0.974928, 0.980172,
+	0.984808, 0.988831, 0.992239, 0.995031, 0.997204, 0.998757, 0.999689, 1.000000,
+    };
+    int t;
+    float sinT, cosT;
 
-   pong.ballVelocity.x = sinf(angle) * pong.ballSpeed;
-   pong.ballVelocity.y = cosf(angle) * pong.ballSpeed;
+    pong.ballPos.x = MODE_WIDTH / 2;
+    pong.ballPos.y = MODE_HEIGHT / 2;
+
+    /* Limit the random angle to avoid those within 45 degrees of vertical */
+    t = 32 + (Random32() & 31);
+
+    sinT = sineTable[t];
+    cosT = -sineTable[(t + 32) & 63];
+
+    sinT *= pong.ballSpeed;
+    cosT *= pong.ballSpeed;
+
+    switch (Random32() & 3) {
+    case 0:
+	pong.ballVelocity.x = sinT;
+	pong.ballVelocity.y = cosT;
+	break;
+    case 1:
+	pong.ballVelocity.x = -sinT;
+	pong.ballVelocity.y = cosT;
+	break;
+    case 2:
+	pong.ballVelocity.x = -sinT;
+	pong.ballVelocity.y = -cosT;
+	break;
+    case 3:
+	pong.ballVelocity.x = sinT;
+	pong.ballVelocity.y = -cosT;
+	break;
+    }
 }
 
 
