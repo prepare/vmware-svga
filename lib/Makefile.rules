@@ -24,10 +24,13 @@ LDFLAGS := -nostdlib -Wl,-T,$(LIB_DIR)/metalkit/image.ld
 CFLAGS += -Wall -Werror
 
 # Size Optimizations.
-CFLAGS += -Os -Wl,--gc-sections -ffunction-sections -fdata-sections
+CFLAGS += -Os -fweb
+
+# Linker optimizations
+CFLAGS += -Wl,--gc-sections -ffunction-sections -fdata-sections
 
 # This enables extra gcc builtins for floating point math.
-CFLAGS += -march=i686 -ffast-math
+CFLAGS += -march=i686 -ffast-math -funsafe-math-optimizations
 
 # Generate debug symbols. These only show up in the .elf file, not the
 # final image. Recent versions of VMware have a gdb debug stub that

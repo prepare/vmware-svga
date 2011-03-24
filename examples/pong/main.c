@@ -13,6 +13,7 @@
 #include "timer.h"
 #include "keyboard.h"
 #include "vmbackdoor.h"
+#include "math.h"
 
 #define PONG_DOT_SIZE           8
 #define PONG_DIGIT_PIXEL_SIZE   10
@@ -20,6 +21,9 @@
 #define PONG_SPRITE_COLOR       0xFFFFFF
 #define PONG_PLAYFIELD_COLOR    0xAAAAAA
 #define PONG_FRAME_RATE         60
+
+#define MODE_WIDTH              800
+#define MODE_HEIGHT             600
 
 #define MAX_DIRTY_RECTS         128
 #define MAX_SPRITES             8
@@ -118,7 +122,7 @@ BackFill(FillRect fr)   // IN
    int i, j;
 
    for (i = 0; i < fr.r.h; i++) {
-      uint32 *line = &back.buffer[(fr.r.y + i) * gSVGA.width + fr.r.x];
+      uint32 *line = &back.buffer[(fr.r.y + i) * MODE_WIDTH + fr.r.x];
 
       for (j = 0; j < fr.r.w; j++) {
          line[j] = fr.color;
@@ -170,7 +174,7 @@ BackUpdate()  // IN
       uint32 i, j;
 
       for (i = 0; i < rect.h; i++) {
-         uint32 offset = (rect.y + i) * gSVGA.width + rect.x;
+         uint32 offset = (rect.y + i) * MODE_WIDTH + rect.x;
          uint32 *src = &back.buffer[offset];
          uint32 *dest = &((uint32*) gSVGA.fbMem)[offset];
 
@@ -306,7 +310,7 @@ PongDrawPlayfield()
     * Clear the screen
     */
    FillRect background = {
-      {0, 0, gSVGA.width, gSVGA.height},
+      {0, 0, MODE_WIDTH, MODE_HEIGHT},
       PONG_BG_COLOR,
    };
    BackFill(background);
@@ -315,10 +319,10 @@ PongDrawPlayfield()
     * Draw the dotted dividing line
     */
    for (i = PONG_DOT_SIZE;
-        i <= gSVGA.height - PONG_DOT_SIZE * 2;
+        i <= MODE_HEIGHT - PONG_DOT_SIZE * 2;
         i += PONG_DOT_SIZE * 2) {
       FillRect dot = {
-         {(gSVGA.width - PONG_DOT_SIZE) / 2, i,
+         {(MODE_WIDTH - PONG_DOT_SIZE) / 2, i,
           PONG_DOT_SIZE, PONG_DOT_SIZE},
          PONG_PLAYFIELD_COLOR,
       };
@@ -347,7 +351,7 @@ PongDrawPlayfield()
       }
       *(p++) = DecDigit(pong.scores[1], 1, FALSE);
 
-      PongDrawString(gSVGA.width/2, PONG_DIGIT_PIXEL_SIZE,
+      PongDrawString(MODE_WIDTH/2, PONG_DIGIT_PIXEL_SIZE,
                      scoreStr, sizeof scoreStr);
    }
 }
@@ -378,7 +382,7 @@ PongDrawScreen()
    PongDrawPlayfield();
 
    if (pong.playfieldDirty) {
-      Rect r = {0, 0, gSVGA.width, gSVGA.height};
+      Rect r = {0, 0, MODE_WIDTH, MODE_HEIGHT};
       BackMarkDirty(r);
       pong.playfieldDirty = FALSE;
    }
@@ -414,50 +418,13 @@ PongDrawScreen()
 static void
 PongLaunchBall()
 {
-   /* sin() from 0 to PI/2 */
-   static const float sineTable[64] = {
-      0.000000, 0.024931, 0.049846, 0.074730, 0.099568, 0.124344, 0.149042, 0.173648,
-      0.198146, 0.222521, 0.246757, 0.270840, 0.294755, 0.318487, 0.342020, 0.365341,
-      0.388435, 0.411287, 0.433884, 0.456211, 0.478254, 0.500000, 0.521435, 0.542546,
-      0.563320, 0.583744, 0.603804, 0.623490, 0.642788, 0.661686, 0.680173, 0.698237,
-      0.715867, 0.733052, 0.749781, 0.766044, 0.781831, 0.797133, 0.811938, 0.826239,
-      0.840026, 0.853291, 0.866025, 0.878222, 0.889872, 0.900969, 0.911506, 0.921476,
-      0.930874, 0.939693, 0.947927, 0.955573, 0.962624, 0.969077, 0.974928, 0.980172,
-      0.984808, 0.988831, 0.992239, 0.995031, 0.997204, 0.998757, 0.999689, 1.000000,
-   };
-   int t;
-   float sinT, cosT;
+   float angle = Random32() * 1.4629e-9;  // (PI * 2 / MAX_UINT32)
+  
+   pong.ballPos.x = MODE_WIDTH / 2;
+   pong.ballPos.y = MODE_HEIGHT / 2;
 
-   pong.ballPos.x = gSVGA.width / 2;
-   pong.ballPos.y = gSVGA.height / 2;
-
-   /* Limit the random angle to avoid those within 45 degrees of vertical */
-   t = 32 + (Random32() & 31);
-
-   sinT = sineTable[t];
-   cosT = -sineTable[(t + 32) & 63];
-
-   sinT *= pong.ballSpeed;
-   cosT *= pong.ballSpeed;
-
-   switch (Random32() & 3) {
-   case 0:
-      pong.ballVelocity.x = sinT;
-      pong.ballVelocity.y = cosT;
-      break;
-   case 1:
-      pong.ballVelocity.x = -sinT;
-      pong.ballVelocity.y = cosT;
-      break;
-   case 2:
-      pong.ballVelocity.x = -sinT;
-      pong.ballVelocity.y = -cosT;
-      break;
-   case 3:
-      pong.ballVelocity.x = sinT;
-      pong.ballVelocity.y = -cosT;
-      break;
-   }
+   pong.ballVelocity.x = sinf(angle) * pong.ballSpeed;
+   pong.ballVelocity.y = cosf(angle) * pong.ballSpeed;
 }
 
 
@@ -479,14 +446,14 @@ PongInit()
    pong.scores[1] = 0;
    pong.playfieldDirty = TRUE;
 
-   pong.paddlePos[0] = pong.paddlePos[1] = gSVGA.height / 2;
+   pong.paddlePos[0] = pong.paddlePos[1] = MODE_HEIGHT / 2;
 
    pong.paddles[0].r.x = 10;
    pong.paddles[0].r.w = 16;
    pong.paddles[0].r.h = 64;
    pong.paddles[0].color = PONG_SPRITE_COLOR;
 
-   pong.paddles[1].r.x = gSVGA.width - 16 - 10;
+   pong.paddles[1].r.x = MODE_WIDTH - 16 - 10;
    pong.paddles[1].r.w = 16;
    pong.paddles[1].r.h = 64;
    pong.paddles[1].color = PONG_SPRITE_COLOR;
@@ -514,8 +481,8 @@ PongInit()
 static void
 PongUpdateMotion(float dt)  // IN
 {
-   int playableWidth = gSVGA.width - pong.ball.r.w;
-   int playableHeight = gSVGA.height - pong.ball.r.h;
+   int playableWidth = MODE_WIDTH - pong.ball.r.w;
+   int playableHeight = MODE_HEIGHT - pong.ball.r.h;
    int i;
 
    pong.ballPos.x += pong.ballVelocity.x * dt;
@@ -523,7 +490,7 @@ PongUpdateMotion(float dt)  // IN
 
    for (i = 0; i < 2; i++) {
       int pos = pong.paddlePos[i] + pong.paddleVelocities[i] * dt;
-      pong.paddlePos[i] = MIN(gSVGA.height - pong.paddles[i].r.h, MAX(0, pos));
+      pong.paddlePos[i] = MIN(MODE_HEIGHT - pong.paddles[i].r.h, MAX(0, pos));
       pong.paddles[i].r.y = (int)pong.paddlePos[i];
    }
 
@@ -572,7 +539,7 @@ PongUpdateMotion(float dt)  // IN
        * Only bounce off the paddle when we're moving toward it, to
        * prevent the ball from getting stuck inside the paddle
        */
-      if ((pong.paddles[i].r.x > gSVGA.width / 2) == (pong.ballVelocity.x > 0) &&
+      if ((pong.paddles[i].r.x > MODE_WIDTH / 2) == (pong.ballVelocity.x > 0) &&
           RectTestIntersection(&pong.ball.r, &pong.paddles[i].r)) {
          /*
           * Boing! The ball bounces back, plus it gets a little spin
@@ -638,9 +605,9 @@ PongAbsMousePlayer(int playerNum)   // IN
    Bool mouseMoved = FALSE;
 
    while (VMBackdoor_MouseGetPacket(&p)) {
-      newY = (p.y * gSVGA.height / 0xFFFF) - pong.paddles[playerNum].r.h / 2;
+      newY = (p.y * MODE_HEIGHT / 0xFFFF) - pong.paddles[playerNum].r.h / 2;
       newY = MAX(0, newY);
-      newY = MIN(gSVGA.height - pong.paddles[playerNum].r.h, newY);
+      newY = MIN(MODE_HEIGHT - pong.paddles[playerNum].r.h, newY);
       mouseMoved = TRUE;
    }
 
@@ -668,7 +635,7 @@ PongComputerPlayer(int playerNum,   // IN
    int ballCenter = pong.ball.r.y + pong.ball.r.h / 2;
    int distance = ballCenter - paddleCenter;
 
-   pong.paddleVelocities[playerNum] = distance / (float)gSVGA.height * maxSpeed;
+   pong.paddleVelocities[playerNum] = distance * maxSpeed * (1.0f / MODE_HEIGHT);
 }
 
 
@@ -687,8 +654,8 @@ main(void)
 {
    Intr_Init();
    SVGA_Init();
-   SVGA_SetMode(800, 600, 32);
-   back.buffer = (uint32*) (gSVGA.fbMem + gSVGA.width * gSVGA.height * sizeof(uint32));
+   SVGA_SetMode(MODE_WIDTH, MODE_HEIGHT, 32);
+   back.buffer = (uint32*) (gSVGA.fbMem + MODE_WIDTH * MODE_HEIGHT * sizeof(uint32));
 
    Keyboard_Init();
    VMBackdoor_MouseInit(TRUE);
