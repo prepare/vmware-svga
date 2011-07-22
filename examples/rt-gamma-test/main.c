@@ -82,15 +82,13 @@ render(void)
    SVGA3dPrimitiveRange *ranges;
    static Matrix view, instance;
    static uint32 frame = 0;
-   float x, y, gamma;
+   float x, y;
 
    Matrix_Copy(view, gIdentityMatrix);
    Matrix_Scale(view, 0.5, 0.5, 0.5, 1.0);
    Matrix_RotateY(view, 30.0 * M_PI / 180.0);
    Matrix_RotateX(view, ++frame * 0.001f);
    Matrix_Translate(view, 0, 0, 15);
-
-   gamma = 0.f;
 
    for (y = 0; y < GRID_Y_COUNT; y++) {
       for (x = 0; x < GRID_X_COUNT; x++) {
