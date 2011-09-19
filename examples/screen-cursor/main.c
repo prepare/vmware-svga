@@ -757,7 +757,7 @@ main(void)
    Screen_Init();
    ScreenDraw_Init(GMRID_SCREEN_DRAW);
    allocNoise();
-   Screen_Define(&myScreen);
+   Screen_Create(&myScreen);
 
    /*
     * Draw the menu of test modes.

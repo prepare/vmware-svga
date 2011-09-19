@@ -1478,6 +1478,38 @@ SVGAInterruptHandler(int vector)  // IN (unused)
 
 
 /*
+ *----------------------------------------------------------------------
+ *
+ * SVGA_AllocGMR --
+ *
+ *      Allocate a buffer from the framebuffer GMR for screen/DMA operations.
+ *      Returns both a pointer (for us to use) and an SVGAGuestPtr (for the
+ *      SVGA device to use).
+ *
+ *      XXX: This is a trivial implementation which just returns
+ *           consecutive addresses in the framebuffer.
+ *
+ * Results:
+ *      Returns a local pointer and an SVGAGuestPtr to unused memory.
+ *
+ * Side effects:
+ *      Allocates memory.
+ *
+ *----------------------------------------------------------------------
+ */
+
+void *
+SVGA_AllocGMR(uint32 size,        // IN
+              SVGAGuestPtr *ptr)  // OUT
+{
+   static SVGAGuestPtr nextPtr = { SVGA_GMR_FRAMEBUFFER, 0 };
+   *ptr = nextPtr;
+   nextPtr.offset += size;
+   return gSVGA.fbMem + ptr->offset;
+}
+
+
+/*
  *-----------------------------------------------------------------------------
  *
  * SVGA_Update --

@@ -259,7 +259,7 @@ main(void)
       .size = { 800, 600 },
       .root = { 0, 0 },
    };
-   Screen_Define(&myScreen);
+   Screen_Create(&myScreen);
 
    /*
     * Draw some explanatory text.

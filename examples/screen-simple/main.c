@@ -73,7 +73,7 @@ main(void)
       .size = { 640, 480 },
       .root = { -500, 10000 },
    };
-   Screen_Define(&myScreen);
+   Screen_Create(&myScreen);
 
    /*
     * Create a system memory framebuffer.

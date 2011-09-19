@@ -371,9 +371,6 @@ SVGA3DUtil_AllocSurfaceID(void)
  *      (for us to use) and an SVGAGuestPtr (for the SVGA3D device to
  *      use).
  *
- *      XXX: This is a trivial implementation which just returns
- *           consecutive addresses in the framebuffer.
- *
  * Results:
  *      Returns a local pointer and an SVGAGuestPtr to unused memory.
  *
@@ -387,10 +384,7 @@ void *
 SVGA3DUtil_AllocDMABuffer(uint32 size,        // IN
                           SVGAGuestPtr *ptr)  // OUT
 {
-   static SVGAGuestPtr nextPtr = { SVGA_GMR_FRAMEBUFFER, 0 };
-   *ptr = nextPtr;
-   nextPtr.offset += size;
-   return gSVGA.fbMem + ptr->offset;
+   return SVGA_AllocGMR(size, ptr);
 }
 
 

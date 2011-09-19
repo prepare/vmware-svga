@@ -198,6 +198,7 @@ toggleScreenExistence(void)
 
    if (screen->id == SVGA_ID_INVALID) {
       screen->id = currentScreen;
+      // FIXME: Need to call Screen_Create
       Screen_Define(screen);
       paintScreen(screen);
    } else {

@@ -79,7 +79,7 @@ main(void)
       .size = { 800, 600 },
       .root = { -1234, 5678 },
    };
-   Screen_Define(&myScreen);
+   Screen_Create(&myScreen);
 
    const uint32 numPages = 4096;
    const uint32 tileSize = 32;

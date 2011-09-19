@@ -32,6 +32,7 @@
 #ifndef __GMR_H__
 #define __GMR_H__
 
+#include "svga_reg.h"
 
 /*
  * Macros for physical memory pages, in our flat memory model.
@@ -40,6 +41,7 @@
  */
 
 #define PAGE_SIZE          4096
+#define PAGE_SHIFT         12
 #define PAGE_MASK          (PAGE_SIZE - 1)
 #define PPN_POINTER(ppn)   ((void*)((ppn)*PAGE_SIZE))
 typedef uint32 PPN;
@@ -52,6 +54,7 @@ typedef uint32 PPN;
 typedef struct GMRState {
    uint32 maxIds;
    uint32 maxDescriptorLen;
+   uint32 maxPages;
 } GMRState;
 
 extern GMRState gGMR;
@@ -77,6 +80,7 @@ void Heap_DiscardPages(PPN firstPage, uint32 numPages);
  */
 
 void GMR_Init(void);
+void GMR2_Init(void);
 
 
 /*

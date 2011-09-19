@@ -110,8 +110,6 @@ render(void)
          }
          SVGA_FIFOCommitAll();
 
-         gamma += 0.1f;
-
          SVGA3D_BeginDrawPrimitives(CID, &decls, 2, &ranges, 1);
          {
             decls[0].identity.type = SVGA3D_DECLTYPE_FLOAT3;

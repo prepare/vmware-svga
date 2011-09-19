@@ -70,7 +70,7 @@ const uint32 numLines = arraysize(indexData) / 2;
 static void
 initScreens(void)
 {
-   static const SVGAScreenObject screen = {
+   static SVGAScreenObject screen = {
       .structSize = sizeof(SVGAScreenObject),
       .id = 0,
       .flags = SVGA_SCREEN_HAS_ROOT | SVGA_SCREEN_IS_PRIMARY,
@@ -78,7 +78,7 @@ initScreens(void)
       .root = { 1000, 2000 },
    };
 
-   Screen_Define(&screen);
+   Screen_Create(&screen);
 
    ScreenDraw_SetScreen(screen.id, screen.size.width, screen.size.height);
    Console_Clear();

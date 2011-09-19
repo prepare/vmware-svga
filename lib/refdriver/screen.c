@@ -54,9 +54,45 @@
 void
 Screen_Init(void)
 {
-   if (!SVGA_HasFIFOCap(SVGA_FIFO_CAP_SCREEN_OBJECT)) {
+   if (!(SVGA_HasFIFOCap(SVGA_FIFO_CAP_SCREEN_OBJECT) ||
+         SVGA_HasFIFOCap(SVGA_FIFO_CAP_SCREEN_OBJECT_2))) {
       SVGA_Panic("Virtual device does not have Screen Object support.");
    }
+}
+
+
+/*
+ *-----------------------------------------------------------------------------
+ *
+ * Screen_Create --
+ *
+ *    Create an SVGA Screen Object.
+ *
+ *    Also create the backing store when supported/required.
+ *
+ * Results:
+ *    None.
+ *
+ * Side effects:
+ *    It may create a backing store.
+ *
+ *-----------------------------------------------------------------------------
+ */
+
+void
+Screen_Create(SVGAScreenObject *screen)  // IN/OUT
+{
+   if (SVGA_HasFIFOCap(SVGA_FIFO_CAP_SCREEN_OBJECT_2)) {
+      const uint32 pitch = screen->size.width * sizeof(uint32);
+      const uint32 size = screen->size.height*pitch;
+      screen->structSize = sizeof(SVGAScreenObject);
+      SVGA_AllocGMR(size, &screen->backingStore.ptr);
+      screen->backingStore.ptr.offset = 0;
+      screen->backingStore.pitch = pitch;
+   } else {
+      screen->structSize = offsetof(SVGAScreenObject, backingStore);
+   }
+   Screen_Define(screen);
 }
 
 

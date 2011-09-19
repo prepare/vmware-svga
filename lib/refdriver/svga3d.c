@@ -70,22 +70,29 @@
 void
 SVGA3D_Init(void)
 {
+   SVGA3dHardwareVersion hwVersion;
+
    if (!(gSVGA.capabilities & SVGA_CAP_EXTENDED_FIFO)) {
       SVGA_Panic("3D requires the Extended FIFO capability.");
    }
 
-   if (gSVGA.fifoMem[SVGA_FIFO_MIN] <= sizeof(uint32) * SVGA_FIFO_GUEST_3D_HWVERSION) {
-      SVGA_Panic("GUEST_3D_HWVERSION register not present.");
+   if (SVGA_HasFIFOCap(SVGA_FIFO_CAP_3D_HWVERSION_REVISED)) {
+      hwVersion = gSVGA.fifoMem[SVGA_FIFO_3D_HWVERSION_REVISED];
+   } else {
+      if (gSVGA.fifoMem[SVGA_FIFO_MIN] <= sizeof(uint32) * SVGA_FIFO_GUEST_3D_HWVERSION) {
+         SVGA_Panic("GUEST_3D_HWVERSION register not present.");
+      }
+      hwVersion = gSVGA.fifoMem[SVGA_FIFO_3D_HWVERSION];
    }
 
    /*
     * Check the host's version, make sure we're binary compatible.
     */
 
-   if (gSVGA.fifoMem[SVGA_FIFO_3D_HWVERSION] == 0) {
+   if (hwVersion == 0) {
       SVGA_Panic("3D disabled by host.");
    }
-   if (gSVGA.fifoMem[SVGA_FIFO_3D_HWVERSION] < SVGA3D_HWVERSION_WS65_B1) {
+   if (hwVersion < SVGA3D_HWVERSION_WS65_B1) {
       SVGA_Panic("Host SVGA3D protocol is too old, not binary compatible.");
    }
 }

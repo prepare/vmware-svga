@@ -45,6 +45,7 @@ void Screen_Init(void);
  * Creating/destroying screens
  */
 
+void Screen_Create(SVGAScreenObject *screen);
 void Screen_Define(const SVGAScreenObject *screen);
 void Screen_Destroy(uint32 id);
 

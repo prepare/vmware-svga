@@ -34,7 +34,7 @@ main(void)
       .size = { 1600, 1200 },
       .root = { -1234, 5678 },
    };
-   Screen_Define(&myScreen);
+   Screen_Create(&myScreen);
 
    const uint32 gmrId = 0;
    uint32 numPages = 1 + (myScreen.size.width * myScreen.size.height *

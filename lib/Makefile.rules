@@ -128,7 +128,7 @@ listing: $(ELF_TARGET)
 
 $(VMX_TARGET):
 	@echo config.version = 8 > $(VMX_TARGET)
-	@echo virtualHW.version = 7 >> $(VMX_TARGET)
+	@echo virtualHW.version = 8 >> $(VMX_TARGET)
 	@echo memsize = $(VMX_MEMSIZE) >> $(VMX_TARGET)
 	@echo displayname = $(PLAIN_TARGET) >> $(VMX_TARGET)
 	@echo guestOS = other >> $(VMX_TARGET)

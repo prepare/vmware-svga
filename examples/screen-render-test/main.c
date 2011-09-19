@@ -113,9 +113,9 @@ initScreens(void)
    };
 
    for (i = 0; i < arraysize(screens); i++) {
-      const SVGAScreenObject *screen = &screens[i];
+      SVGAScreenObject *screen = &screens[i];
 
-      Screen_Define(screen);
+      Screen_Create(screen);
 
       ScreenDraw_SetScreen(screen->id, screen->size.width, screen->size.height);
       Console_Clear();

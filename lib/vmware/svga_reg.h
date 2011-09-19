@@ -39,6 +39,15 @@
 #define PCI_DEVICE_ID_VMWARE_SVGA2      0x0405
 
 /*
+ * SVGA_REG_ENABLE bit definitions.
+ */
+#define SVGA_REG_ENABLE_DISABLE     0
+#define SVGA_REG_ENABLE_ENABLE      1
+#define SVGA_REG_ENABLE_HIDE        2
+#define SVGA_REG_ENABLE_ENABLE_HIDE (SVGA_REG_ENABLE_ENABLE |\
+				     SVGA_REG_ENABLE_HIDE)
+
+/*
  * Legal values for the SVGA_REG_CURSOR_ON register in old-fashioned
  * cursor bypass mode. This is still supported, but no new guest
  * drivers should use it.
@@ -158,7 +167,9 @@ enum {
    SVGA_REG_GMR_MAX_DESCRIPTOR_LENGTH = 44,
 
    SVGA_REG_TRACES = 45,            /* Enable trace-based updates even when FIFO is on */
-   SVGA_REG_TOP = 46,               /* Must be 1 more than the last register */
+   SVGA_REG_GMRS_MAX_PAGES = 46,    /* Maximum number of 4KB pages for all GMRs */
+   SVGA_REG_MEMORY_SIZE = 47,       /* Total dedicated device memory excluding FIFO */
+   SVGA_REG_TOP = 48,               /* Must be 1 more than the last register */
 
    SVGA_PALETTE_BASE = 1024,        /* Base of SVGA color map */
    /* Next 768 (== 256*3) registers exist for colormap */
@@ -313,6 +324,28 @@ struct SVGAGMRImageFormat {
    };
 } SVGAGMRImageFormat;
 
+typedef
+struct SVGAGuestImage {
+   SVGAGuestPtr         ptr;
+
+   /*
+    * A note on interpretation of pitch: This value of pitch is the
+    * number of bytes between vertically adjacent image
+    * blocks. Normally this is the number of bytes between the first
+    * pixel of two adjacent scanlines. With compressed textures,
+    * however, this may represent the number of bytes between
+    * compression blocks rather than between rows of pixels.
+    *
+    * XXX: Compressed textures currently must be tightly packed in guest memory.
+    *
+    * If the image is 1-dimensional, pitch is ignored.
+    *
+    * If 'pitch' is zero, the SVGA3D device calculates a pitch value
+    * assuming each row of blocks is tightly packed.
+    */
+   uint32 pitch;
+} SVGAGuestImage;
+
 /*
  * SVGAColorBGRX --
  *
@@ -370,6 +403,15 @@ struct SVGASignedPoint {
  *  Note the holes in the bitfield. Missing bits have been deprecated,
  *  and must not be reused. Those capabilities will never be reported
  *  by new versions of the SVGA device.
+ *
+ * SVGA_CAP_GMR2 --
+ *    Provides asynchronous commands to define and remap guest memory
+ *    regions.  Adds device registers SVGA_REG_GMRS_MAX_PAGES and
+ *    SVGA_REG_MEMORY_SIZE.
+ *
+ * SVGA_CAP_SCREEN_OBJECT_2 --
+ *    Allow screen object support, and require backing stores from the
+ *    guest for each screen object.
  */
 
 #define SVGA_CAP_NONE               0x00000000
@@ -387,6 +429,8 @@ struct SVGASignedPoint {
 #define SVGA_CAP_DISPLAY_TOPOLOGY   0x00080000   // Legacy multi-monitor support
 #define SVGA_CAP_GMR                0x00100000
 #define SVGA_CAP_TRACES             0x00200000
+#define SVGA_CAP_GMR2               0x00400000
+#define SVGA_CAP_SCREEN_OBJECT_2    0x00800000
 
 
 /*
@@ -460,15 +504,29 @@ enum {
    SVGA_FIFO_RESERVED,           /* Bytes past NEXT_CMD with real contents */
 
    /*
-    * Valid with SVGA_FIFO_CAP_SCREEN_OBJECT:
+    * Valid with SVGA_FIFO_CAP_SCREEN_OBJECT or SVGA_FIFO_CAP_SCREEN_OBJECT_2:
     *
     * By default this is SVGA_ID_INVALID, to indicate that the cursor
     * coordinates are specified relative to the virtual root. If this
     * is set to a specific screen ID, cursor position is reinterpreted
-    * as a signed offset relative to that screen's origin. This is the
-    * only way to place the cursor on a non-rooted screen.
+    * as a signed offset relative to that screen's origin.
     */
    SVGA_FIFO_CURSOR_SCREEN_ID,
+
+   /*
+    * Valid with SVGA_FIFO_CAP_DEAD
+    *
+    * An arbitrary value written by the host, drivers should not use it.
+    */
+   SVGA_FIFO_DEAD,
+
+   /*
+    * Valid with SVGA_FIFO_CAP_3D_HWVERSION_REVISED:
+    *
+    * Contains 3D HWVERSION (see SVGA3dHardwareVersion in svga3d_reg.h)
+    * on platforms that can enforce graphics resource limits.
+    */
+   SVGA_FIFO_3D_HWVERSION_REVISED,
 
    /*
     * XXX: The gap here, up until SVGA_FIFO_3D_CAPS, can be used for new
@@ -709,6 +767,37 @@ enum {
  *
  *       - When a screen is resized, either using Screen Object commands or
  *         legacy multimon registers, its contents are preserved.
+ *
+ * SVGA_FIFO_CAP_GMR2 --
+ *
+ *    Provides new commands to define and remap guest memory regions (GMR).
+ *
+ *    New 2D commands:
+ *       DEFINE_GMR2, REMAP_GMR2.
+ *
+ * SVGA_FIFO_CAP_3D_HWVERSION_REVISED --
+ *
+ *    Indicates new register SVGA_FIFO_3D_HWVERSION_REVISED exists.
+ *    This register may replace SVGA_FIFO_3D_HWVERSION on platforms
+ *    that enforce graphics resource limits.  This allows the platform
+ *    to clear SVGA_FIFO_3D_HWVERSION and disable 3D in legacy guest
+ *    drivers that do not limit their resources.
+ *
+ *    Note this is an alias to SVGA_FIFO_CAP_GMR2 because these indicators
+ *    are codependent (and thus we use a single capability bit).
+ *
+ * SVGA_FIFO_CAP_SCREEN_OBJECT_2 --
+ *
+ *    Modifies the DEFINE_SCREEN command to include a guest provided
+ *    backing store in GMR memory and the bytesPerLine for the backing
+ *    store.  This capability requires the use of a backing store when
+ *    creating screen objects.  However if SVGA_FIFO_CAP_SCREEN_OBJECT
+ *    is present then backing stores are optional.
+ *
+ * SVGA_FIFO_CAP_DEAD --
+ *
+ *    Drivers should not use this cap bit.  This cap bit can not be
+ *    reused since some hosts already expose it.
  */
 
 #define SVGA_FIFO_CAP_NONE                  0
@@ -720,6 +809,10 @@ enum {
 #define SVGA_FIFO_CAP_ESCAPE            (1<<5)
 #define SVGA_FIFO_CAP_RESERVE           (1<<6)
 #define SVGA_FIFO_CAP_SCREEN_OBJECT     (1<<7)
+#define SVGA_FIFO_CAP_GMR2              (1<<8)
+#define SVGA_FIFO_CAP_3D_HWVERSION_REVISED  SVGA_FIFO_CAP_GMR2
+#define SVGA_FIFO_CAP_SCREEN_OBJECT_2   (1<<9)
+#define SVGA_FIFO_CAP_DEAD              (1<<10)
 
 
 /*
@@ -829,11 +922,47 @@ typedef struct SVGAOverlayUnit {
  *    compatibility. New flags can be added, and the struct may grow,
  *    but existing fields must retain their meaning.
  *
+ *    Added with SVGA_FIFO_CAP_SCREEN_OBJECT_2 are required fields of
+ *    a SVGAGuestPtr that is used to back the screen contents.  This
+ *    memory must come from the GFB.  The guest is not allowed to
+ *    access the memory and doing so will have undefined results.  The
+ *    backing store is required to be page aligned and the size is
+ *    padded to the next page boundry.  The number of pages is:
+ *       (bytesPerLine * size.width * 4 + PAGE_SIZE - 1) / PAGE_SIZE
+ *
+ *    The pitch in the backingStore is required to be at least large
+ *    enough to hold a 32bbp scanline.  It is recommended that the
+ *    driver pad bytesPerLine for a potential performance win.
+ *
+ *    The cloneCount field is treated as a hint from the guest that
+ *    the user wants this display to be cloned, countCount times.  A
+ *    value of zero means no cloning should happen.
  */
 
-#define SVGA_SCREEN_HAS_ROOT    (1 << 0)  // Screen is present in the virtual coord space
-#define SVGA_SCREEN_IS_PRIMARY  (1 << 1)  // Guest considers this screen to be 'primary'
-#define SVGA_SCREEN_FULLSCREEN_HINT (1 << 2)   // Guest is running a fullscreen app here
+#define SVGA_SCREEN_MUST_BE_SET     (1 << 0) // Must be set or results undefined
+#define SVGA_SCREEN_HAS_ROOT SVGA_SCREEN_MUST_BE_SET // Deprecated
+#define SVGA_SCREEN_IS_PRIMARY      (1 << 1) // Guest considers this screen to be 'primary'
+#define SVGA_SCREEN_FULLSCREEN_HINT (1 << 2)  // Guest is running a fullscreen app here
+
+/*
+ * Added with SVGA_FIFO_CAP_SCREEN_OBJECT_2.  When the screen is
+ * deactivated the base layer is defined to lose all contents and
+ * become black.  When a screen is deactivated the backing store is
+ * optional.  When set backingPtr and bytesPerLine will be ignored.
+ */
+#define SVGA_SCREEN_DEACTIVATE  (1 << 3)
+
+/*
+ * Added with SVGA_FIFO_CAP_SCREEN_OBJECT_2.  When this flag is set
+ * the screen contents will be outputted as all black to the user
+ * though the base layer contents is preserved.  The screen base layer
+ * can still be read and written to like normal though the no visible
+ * effect will be seen by the user.  When the flag is changed the
+ * screen will be blanked or redrawn to the current contents as needed
+ * without any extra commands from the driver.  This flag only has an
+ * effect when the screen is not deactivated.
+ */
+#define SVGA_SCREEN_BLANKING (1 << 4)
 
 typedef
 struct SVGAScreenObject {
@@ -847,7 +976,14 @@ struct SVGAScreenObject {
    struct {
       int32 x;
       int32 y;
-   } root;              // Only used if SVGA_SCREEN_HAS_ROOT is set.
+   } root;
+
+   /*
+    * Added and required by SVGA_FIFO_CAP_SCREEN_OBJECT_2, optional
+    * with SVGA_FIFO_CAP_SCREEN_OBJECT.
+    */
+   SVGAGuestImage backingStore;
+   uint32 cloneCount;
 } SVGAScreenObject;
 
 
@@ -885,9 +1021,12 @@ typedef enum {
    SVGA_CMD_BLIT_SCREEN_TO_GMRFB  = 38,
    SVGA_CMD_ANNOTATION_FILL       = 39,
    SVGA_CMD_ANNOTATION_COPY       = 40,
+   SVGA_CMD_DEFINE_GMR2           = 41,
+   SVGA_CMD_REMAP_GMR2            = 42,
    SVGA_CMD_MAX
 } SVGAFifoCmdId;
 
+#define SVGA_CMD_MAX_DATASIZE       (256 * 1024)
 #define SVGA_CMD_MAX_ARGS           64
 
 
@@ -1113,7 +1252,7 @@ struct {
  *    registers (SVGA_REG_NUM_GUEST_DISPLAYS, SVGA_REG_DISPLAY_*).
  *
  * Availability:
- *    SVGA_FIFO_CAP_SCREEN_OBJECT
+ *    SVGA_FIFO_CAP_SCREEN_OBJECT or SVGA_FIFO_CAP_SCREEN_OBJECT_2
  */
 
 typedef
@@ -1129,7 +1268,7 @@ struct {
  *    re-use.
  *
  * Availability:
- *    SVGA_FIFO_CAP_SCREEN_OBJECT
+ *    SVGA_FIFO_CAP_SCREEN_OBJECT or SVGA_FIFO_CAP_SCREEN_OBJECT_2
  */
 
 typedef
@@ -1182,7 +1321,7 @@ struct {
  *    GMRFB.
  *
  * Availability:
- *    SVGA_FIFO_CAP_SCREEN_OBJECT
+ *    SVGA_FIFO_CAP_SCREEN_OBJECT or SVGA_FIFO_CAP_SCREEN_OBJECT_2
  */
 
 typedef
@@ -1219,7 +1358,7 @@ struct {
  *    SVGA_CMD_ANNOTATION_* commands for details.
  *
  * Availability:
- *    SVGA_FIFO_CAP_SCREEN_OBJECT
+ *    SVGA_FIFO_CAP_SCREEN_OBJECT or SVGA_FIFO_CAP_SCREEN_OBJECT_2
  */
 
 typedef
@@ -1267,7 +1406,7 @@ struct {
  *    the time any subsequent FENCE commands are reached.
  *
  * Availability:
- *    SVGA_FIFO_CAP_SCREEN_OBJECT
+ *    SVGA_FIFO_CAP_SCREEN_OBJECT or SVGA_FIFO_CAP_SCREEN_OBJECT_2
  */
 
 typedef
@@ -1302,7 +1441,7 @@ struct {
  *    user's display is being remoted over a network connection.
  *
  * Availability:
- *    SVGA_FIFO_CAP_SCREEN_OBJECT
+ *    SVGA_FIFO_CAP_SCREEN_OBJECT or SVGA_FIFO_CAP_SCREEN_OBJECT_2
  */
 
 typedef
@@ -1334,7 +1473,7 @@ struct {
  *    undefined.
  *
  * Availability:
- *    SVGA_FIFO_CAP_SCREEN_OBJECT
+ *    SVGA_FIFO_CAP_SCREEN_OBJECT or SVGA_FIFO_CAP_SCREEN_OBJECT_2
  */
 
 typedef
@@ -1342,5 +1481,75 @@ struct {
    SVGASignedPoint  srcOrigin;
    uint32           srcScreenId;
 } SVGAFifoCmdAnnotationCopy;
+
+
+/*
+ * SVGA_CMD_DEFINE_GMR2 --
+ *
+ *    Define guest memory region v2.  See the description of GMRs above.
+ *
+ * Availability:
+ *    SVGA_CAP_GMR2
+ */
+
+typedef
+struct {
+   uint32 gmrId;
+   uint32 numPages;
+}
+SVGAFifoCmdDefineGMR2;
+
+
+/*
+ * SVGA_CMD_REMAP_GMR2 --
+ *
+ *    Remap guest memory region v2.  See the description of GMRs above.
+ *
+ *    This command allows guest to modify a portion of an existing GMR by
+ *    invalidating it or reassigning it to different guest physical pages.
+ *    The pages are identified by physical page number (PPN).  The pages
+ *    are assumed to be pinned and valid for DMA operations.
+ *
+ *    Description of command flags:
+ *
+ *    SVGA_REMAP_GMR2_VIA_GMR: If enabled, references a PPN list in a GMR.
+ *       The PPN list must not overlap with the remap region (this can be
+ *       handled trivially by referencing a separate GMR).  If flag is
+ *       disabled, PPN list is appended to SVGARemapGMR command.
+ *
+ *    SVGA_REMAP_GMR2_PPN64: If set, PPN list is in PPN64 format, otherwise
+ *       it is in PPN32 format.
+ *
+ *    SVGA_REMAP_GMR2_SINGLE_PPN: If set, PPN list contains a single entry.
+ *       A single PPN can be used to invalidate a portion of a GMR or
+ *       map it to to a single guest scratch page.
+ *
+ * Availability:
+ *    SVGA_CAP_GMR2
+ */
+
+typedef enum {
+   SVGA_REMAP_GMR2_PPN32         = 0,
+   SVGA_REMAP_GMR2_VIA_GMR       = (1 << 0),
+   SVGA_REMAP_GMR2_PPN64         = (1 << 1),
+   SVGA_REMAP_GMR2_SINGLE_PPN    = (1 << 2),
+} SVGARemapGMR2Flags;
+
+typedef
+struct {
+   uint32 gmrId;
+   SVGARemapGMR2Flags flags;
+   uint32 offsetPages; // offset in pages to begin remap
+   uint32 numPages; // number of pages to remap
+   /*
+    * Followed by additional data depending on SVGARemapGMR2Flags.
+    *
+    * If flag SVGA_REMAP_GMR2_VIA_GMR is set, single SVGAGuestPtr follows.
+    * Otherwise an array of page descriptors in PPN32 or PPN64 format
+    * (according to flag SVGA_REMAP_GMR2_PPN64) follows.  If flag
+    * SVGA_REMAP_GMR2_SINGLE_PPN is set, array contains a single entry.
+    */
+}
+SVGAFifoCmdRemapGMR2;
 
 #endif

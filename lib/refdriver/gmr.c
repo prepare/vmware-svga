@@ -361,7 +361,7 @@ GMR_FreeAll(void)
  *
  * GMR_Init --
  *
- *    Read GMR capabilities, or panic of GMRs aren't supported.
+ *    Read GMR capabilities, or panic if GMRs aren't supported.
  *
  * Results:
  *    None.
@@ -380,5 +380,33 @@ GMR_Init(void)
       gGMR.maxDescriptorLen = SVGA_ReadReg(SVGA_REG_GMR_MAX_DESCRIPTOR_LENGTH);
    } else {
       SVGA_Panic("Virtual device does not have Guest Memory Region (GMR) support.");
+   }
+}
+
+
+/*
+ *-----------------------------------------------------------------------------
+ *
+ * GMR2_Init --
+ *
+ *    Read GMR2 capabilities, or panic if GMR2 isn't supported.
+ *
+ * Results:
+ *    None.
+ *
+ * Side effects:
+ *    Fills in 'gGMR'.
+ *
+ *-----------------------------------------------------------------------------
+ */
+
+void
+GMR2_Init(void)
+{
+   if (gSVGA.capabilities & SVGA_CAP_GMR2) {
+      gGMR.maxIds = SVGA_ReadReg(SVGA_REG_GMR_MAX_IDS);
+      gGMR.maxPages = SVGA_ReadReg(SVGA_REG_GMRS_MAX_PAGES);
+   } else {
+      SVGA_Panic("Virtual device does not have Guest Memory Region version 2 (GMR2) support.");
    }
 }

@@ -108,6 +108,8 @@ void SVGA_SyncToFence(uint32 fence);
 Bool SVGA_HasFencePassed(uint32 fence);
 void SVGA_RingDoorbell(void);
 
+void * SVGA_AllocGMR(uint32 size, SVGAGuestPtr *ptr);
+
 /* 2D commands */
 
 void SVGA_Update(uint32 x, uint32 y, uint32 width, uint32 height);
