@@ -1,0 +1,8 @@
+*.elf
+*.log
+*.o
+*.vmx.lck
+*.vmsd
+*.vmxf
+core
+nvram
