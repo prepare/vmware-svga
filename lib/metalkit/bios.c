@@ -139,7 +139,7 @@ BIOSCallInternal(void)
    asm volatile("xorw %%ax, %%ax \n"
                 "mov %%ax, %%ss \n"
                 "mov %0, %%esp \n"
-                :: "i" (&BIOS_SHARED->stackTop[-sizeof(Regs)]));
+                :: "i" (BIOS_SHARED->stackTop - sizeof(Regs)));
 
    /*
     * Pop Regs off the stack.
@@ -239,12 +239,12 @@ BIOS_Call(uint8 vector, Regs *regs)
    /*
     * Copy Regs onto the top of the 16-bit stack.
     */
-   memcpy(&BIOS_SHARED->stackTop[-sizeof *regs], regs, sizeof *regs);
+   memcpy(BIOS_SHARED->stackTop - sizeof *regs, regs, sizeof *regs);
 
    BIOSCallInternal();
 
    /* Copy Regs back */
-   memcpy(regs, &BIOS_SHARED->stackTop[-sizeof *regs], sizeof *regs);
+   memcpy(regs, BIOS_SHARED->stackTop - sizeof *regs, sizeof *regs);
 
    /*
     * Back to 32-bit IDT.
